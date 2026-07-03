@@ -3,38 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Control de Inventario</title>
+    <title>Dashboard Flexible de Inventario</title>
     <style>
         :root { --primary: #1e3a8a; --success: #10b981; --danger: #ef4444; --dark: #1f2937; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; color: var(--dark); }
         .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        
-        /* Header y Pestañas */
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px; }
         h2 { margin: 0; color: var(--primary); }
         .tabs { display: flex; gap: 10px; }
         .tab-btn { padding: 10px 18px; border: none; background: #e5e7eb; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .tab-btn.active { background: var(--primary); color: white; }
-        
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
-        /* Formularios */
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 6px; }
-        input, select, textarea { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         button.submit-btn { background: var(--primary); color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
-        
-        /* Tabla de Estado Actual */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
         th { background-color: #f9fafb; color: #4b5563; }
-        
-        /* Indicadores visuales de estado */
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
         .badge.prestado { background: #fee2e2; color: var(--danger); }
         .badge.disponible { background: #dcfce7; color: var(--success); }
-        
         .loading { text-align: center; color: #6b7280; padding: 20px; font-style: italic; }
         .status-msg { margin-top: 15px; padding: 12px; border-radius: 6px; display: none; text-align: center; font-weight: bold; }
     </style>
@@ -43,7 +33,7 @@
 
 <div class="container">
     <div class="header">
-        <h2>Sistema de Control Operativo</h2>
+        <h2>Control de Equipos Dinámicos</h2>
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('dashboard')">Panel de Control</button>
             <button class="tab-btn" onclick="switchTab('formulario')">Registrar Movimiento</button>
@@ -51,15 +41,15 @@
     </div>
 
     <div id="tab-dashboard" class="tab-content active">
-        <h3>Estado de Equipos en Tiempo Real</h3>
-        <div id="loading-text" class="loading">Cargando inventario desde la nube...</div>
+        <h3>Estado del Inventario Detectado</h3>
+        <div id="loading-text" class="loading">Sincronizando con Google Sheets...</div>
         <table id="inventoryTable" style="display: none;">
             <thead>
                 <tr>
-                    <th>Artículo / Equipo</th>
+                    <th>Detalle del Equipo / Kit Armado</th>
                     <th>Estado Actual</th>
-                    <th>Último Usuario</th>
-                    <th>Fecha de Movimiento</th>
+                    <th>Último Operador</th>
+                    <th>Fecha Registro</th>
                 </tr>
             </thead>
             <tbody id="inventoryBody">
@@ -68,7 +58,7 @@
     </div>
 
     <div id="tab-formulario" class="tab-content">
-        <h3>Formulario de Salida y Entrada</h3>
+        <h3>Registrar Salida o Entrada</h3>
         <form id="loanForm">
             <div class="form-group">
                 <label for="solicitante">Nombre del Responsable:</label>
@@ -76,14 +66,8 @@
             </div>
 
             <div class="form-group">
-                <label for="articulo">Seleccione el Equipo:</label>
-                <select id="articulo" required>
-                    <option value="Fusionadora térmica en maleta amarilla">Fusionadora térmica en maleta amarilla</option>
-                    <option value="Maleta de telecomunicaciones">Maleta de telecomunicaciones (Guantes, cables, alicate)</option>
-                    <option value="Cables de fibra por separado">Cables de fibra por separado</option>
-                    <option value="Cintas para medir">Cintas para medir</option>
-                    <option value="Máquina azul con medidores">Máquina azul con medidores</option>
-                </select>
+                <label for="articulo">¿Qué se está llevando o devolviendo? (Escríbalo libremente):</label>
+                <input type="text" id="articulo" required placeholder="Ej: Fusionadora en maleta amarilla + 2 cables extra y alicate">
             </div>
 
             <div class="form-group">
@@ -95,8 +79,8 @@
             </div>
 
             <div class="form-group">
-                <label for="observaciones">Observaciones o Notas de entrega:</label>
-                <textarea id="observaciones" rows="3" placeholder="Detalles sobre cómo se entrega o devuelve el equipo..."></textarea>
+                <label for="observaciones">Notas adicionales del estado:</label>
+                <textarea id="observaciones" rows="3" placeholder="Ej: La maleta presenta un cierre suelto / Todo conforme..."></textarea>
             </div>
 
             <button type="submit" class="submit-btn" id="submitBtn">Procesar Registro</button>
@@ -107,18 +91,8 @@
 
 <script>
     // ⚠️ REEMPLAZA CON TU URL REAL DE GOOGLE APPS SCRIPT
-    const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
+    const GOOGLE_WEB_APP_URL = 'Thttps://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
 
-    // Lista estática de tus equipos bases para calcular el estado actual
-    const equiposBase = [
-        "Fusionadora térmica en maleta amarilla",
-        "Maleta de telecomunicaciones",
-        "Cables de fibra por separado",
-        "Cintas para medir",
-        "Máquina azul con medidores"
-    ];
-
-    // Cambiar entre pestañas
     function switchTab(tabName) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -133,7 +107,7 @@
         }
     }
 
-    // Cargar y procesar datos desde Google Sheets
+    // El Dashboard ahora procesa dinámicamente cualquier texto que se haya ingresado
     async function cargarDashboard() {
         document.getElementById('loading-text').style.display = 'block';
         document.getElementById('inventoryTable').style.display = 'none';
@@ -147,52 +121,62 @@
                 const tbody = document.getElementById('inventoryBody');
                 tbody.innerHTML = '';
 
-                // Mapear el último estado real de cada equipo único
-                equiposBase.forEach(equipo => {
-                    // Buscar el registro más reciente de este equipo específico
-                    const ultimoRegistro = registros.find(r => r.articulo === equipo);
+                if(registros.length === 0) {
+                    document.getElementById('loading-text').innerText = 'No hay registros en la base de datos aún.';
+                    return;
+                }
+
+                // Agrupar dinámicamente para extraer el último estado de cada artículo único escrito
+                const ultimosEstados = {};
+                
+                // Al venir invertidos desde el Apps Script, el primero que aparezca en el loop es el más reciente
+                registros.forEach(reg => {
+                    const nombreLimpio = reg.articulo.trim();
+                    if (!ultimosEstados[nombreLimpio]) {
+                        ultimosEstados[nombreLimpio] = reg;
+                    }
+                });
+
+                // Renderizar la tabla con los elementos descubiertos en caliente
+                for (const nombreEquipo in ultimosEstados) {
+                    const reg = ultimosEstados[nombreEquipo];
+                    const fecha = new Date(reg.fecha).toLocaleDateString('es-CL', {hour: '2-digit', minute:'2-digit'});
                     
                     let estadoHtml = '<span class="badge disponible">En Bodega</span>';
-                    let usuario = '-';
-                    let fecha = '-';
-                    
-                    if (ultimoRegistro) {
-                        fecha = new Date(ultimoRegistro.fecha).toLocaleDateString('es-CL', {hour: '2-digit', minute:'2-digit'});
-                        if (ultimoRegistro.estado === 'PRESTADO') {
-                            estadoHtml = `<span class="badge prestado">Prestado</span>`;
-                            usuario = ultimoRegistro.solicitante;
-                        } else {
-                            usuario = `Devuelto por ${ultimoRegistro.solicitante}`;
-                        }
+                    let operador = `Devuelto por ${reg.solicitante}`;
+
+                    if (reg.estado === 'PRESTADO') {
+                        estadoHtml = '<span class="badge prestado">Prestado</span>';
+                        operador = reg.solicitante;
                     }
 
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>${equipo}</strong></td>
+                            <td><strong>${nombreEquipo}</strong></td>
                             <td>${estadoHtml}</td>
-                            <td>${usuario}</td>
+                            <td>${operador}</td>
                             <td><small>${fecha}</small></td>
                         </tr>
                     `;
-                });
+                }
 
                 document.getElementById('loading-text').style.display = 'none';
                 document.getElementById('inventoryTable').style.display = 'table';
             }
         } catch (error) {
-            document.getElementById('loading-text').innerText = 'Error al conectar con la base de datos.';
+            document.getElementById('loading-text').innerText = 'Error de sincronización. Compruebe la URL de la API.';
             console.error(error);
         }
     }
 
-    // Envío del Formulario
+    // Envío de datos
     document.getElementById('loanForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const submitBtn = document.getElementById('submitBtn');
         const msgDiv = document.getElementById('responseMessage');
         
         submitBtn.disabled = true;
-        submitBtn.innerText = 'Guardando en la nube...';
+        submitBtn.innerText = 'Guardando de forma segura...';
         msgDiv.style.display = 'none';
 
         const payload = {
@@ -212,13 +196,13 @@
 
             msgDiv.style.backgroundColor = '#dcfce7';
             msgDiv.style.color = '#166534';
-            msgDiv.innerText = '¡Operación registrada con éxito! Planilla e email actualizados.';
+            msgDiv.innerText = '¡Registrado! Los correos institucionales han sido notificados.';
             msgDiv.style.display = 'block';
             document.getElementById('loanForm').reset();
         } catch (error) {
             msgDiv.style.backgroundColor = '#fee2e2';
             msgDiv.style.color = '#991b1b';
-            msgDiv.innerText = 'Error al registrar.';
+            msgDiv.innerText = 'Error en el envío.';
             msgDiv.style.display = 'block';
         } finally {
             submitBtn.disabled = false;
@@ -226,10 +210,8 @@
         }
     });
 
-    // Cargar datos apenas abra la página
     window.onload = cargarDashboard;
 </script>
 
 </body>
 </html>
-
