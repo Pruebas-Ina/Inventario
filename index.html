@@ -3,79 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Externo de Gestión de Pedidos</title>
+    <title>Dashboard de Control de Inventario</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; padding: 20px; }
-        .container { max-width: 600px; margin: 30px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h2 { color: #1e3a8a; margin-top: 0; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: bold; margin-bottom: 8px; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        button { background-color: #2563eb; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
-        button:hover { background-color: #1d4ed8; }
-        .status-msg { margin-top: 15px; padding: 10px; border-radius: 4px; display: none; text-align: center; font-weight: bold; }
+        :root { --primary: #1e3a8a; --success: #10b981; --danger: #ef4444; --dark: #1f2937; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; color: var(--dark); }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        
+        /* Header y Pestañas */
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px; }
+        h2 { margin: 0; color: var(--primary); }
+        .tabs { display: flex; gap: 10px; }
+        .tab-btn { padding: 10px 18px; border: none; background: #e5e7eb; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Formularios */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; }
+        input, select, textarea { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        button.submit-btn { background: var(--primary); color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
+        
+        /* Tabla de Estado Actual */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background-color: #f9fafb; color: #4b5563; }
+        
+        /* Indicadores visuales de estado */
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .badge.prestado { background: #fee2e2; color: var(--danger); }
+        .badge.disponible { background: #dcfce7; color: var(--success); }
+        
+        .loading { text-align: center; color: #6b7280; padding: 20px; font-style: italic; }
+        .status-msg { margin-top: 15px; padding: 12px; border-radius: 6px; display: none; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Solicitud de Equipos e Insumos</h2>
-    <p style="color: #666; font-size: 14px;">Complete el formulario para registrar un préstamo o devolución en el sistema externo.</p>
-    <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
-
-    <form id="loanForm">
-        <div class="form-group">
-            <label for="solicitante">Nombre del Técnico / Solicitante:</label>
-            <input type="text" id="solicitante" required placeholder="Ej: Juan Pérez">
+    <div class="header">
+        <h2>Sistema de Control Operativo</h2>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('dashboard')">Panel de Control</button>
+            <button class="tab-btn" onclick="switchTab('formulario')">Registrar Movimiento</button>
         </div>
+    </div>
 
-        <div class="form-group">
-            <label for="articulo">Seleccione el Artículo/Insumo:</label>
-            <select id="articulo" required>
-                <option value="">-- Seleccione una opción --</option>
-                <option value="Fusionadora térmica en maleta amarilla">Fusionadora térmica en maleta amarilla (con implementos)</option>
-                <option value="Maleta de telecomunicaciones">Maleta de telecomunicaciones (2 pares de guantes, cables de fibra, alicate)</option>
-                <option value="Cables de fibra por separado">Cables de fibra por separado</option>
-                <option value="Cintas para medir">Cintas para medir</option>
-                <option value="Máquina azul con medidores">Máquina azul con medidores</option>
-            </select>
-        </div>
+    <div id="tab-dashboard" class="tab-content active">
+        <h3>Estado de Equipos en Tiempo Real</h3>
+        <div id="loading-text" class="loading">Cargando inventario desde la nube...</div>
+        <table id="inventoryTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Artículo / Equipo</th>
+                    <th>Estado Actual</th>
+                    <th>Último Usuario</th>
+                    <th>Fecha de Movimiento</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryBody">
+                </tbody>
+        </table>
+    </div>
 
-        <div class="form-group">
-            <label for="estado">Acción a realizar:</label>
-            <select id="estado" required>
-                <option value="PRESTADO">Retirar de Bodega (Préstamo)</option>
-                <option value="DEVUELTO">Reingresar a Bodega (Devolución)</option>
-            </select>
-        </div>
+    <div id="tab-formulario" class="tab-content">
+        <h3>Formulario de Salida y Entrada</h3>
+        <form id="loanForm">
+            <div class="form-group">
+                <label for="solicitante">Nombre del Responsable:</label>
+                <input type="text" id="solicitante" required placeholder="Ej: Carlos Mendoza">
+            </div>
 
-        <div class="form-group">
-            <label for="observaciones">Estado físico del equipo / Notas:</label>
-            <textarea id="observaciones" rows="3" placeholder="Ej: Se retira con todos sus componentes limpios / Se devuelve sin novedades..."></textarea>
-        </div>
+            <div class="form-group">
+                <label for="articulo">Seleccione el Equipo:</label>
+                <select id="articulo" required>
+                    <option value="Fusionadora térmica en maleta amarilla">Fusionadora térmica en maleta amarilla</option>
+                    <option value="Maleta de telecomunicaciones">Maleta de telecomunicaciones (Guantes, cables, alicate)</option>
+                    <option value="Cables de fibra por separado">Cables de fibra por separado</option>
+                    <option value="Cintas para medir">Cintas para medir</option>
+                    <option value="Máquina azul con medidores">Máquina azul con medidores</option>
+                </select>
+            </div>
 
-        <button type="submit" id="submitBtn">Enviar Registro</button>
-    </form>
+            <div class="form-group">
+                <label for="estado">Operación:</label>
+                <select id="estado" required>
+                    <option value="PRESTADO">Retirar de Bodega (Préstamo)</option>
+                    <option value="DEVUELTO">Devolver a Bodega (Reingreso)</option>
+                </select>
+            </div>
 
-    <div id="responseMessage" class="status-msg"></div>
+            <div class="form-group">
+                <label for="observaciones">Observaciones o Notas de entrega:</label>
+                <textarea id="observaciones" rows="3" placeholder="Detalles sobre cómo se entrega o devuelve el equipo..."></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">Procesar Registro</button>
+        </form>
+        <div id="responseMessage" class="status-msg"></div>
+    </div>
 </div>
 
 <script>
-    // PEGA AQUÍ LA URL QUE TE DIO GOOGLE APPS SCRIPT
+    // ⚠️ REEMPLAZA CON TU URL REAL DE GOOGLE APPS SCRIPT
     const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
 
+    // Lista estática de tus equipos bases para calcular el estado actual
+    const equiposBase = [
+        "Fusionadora térmica en maleta amarilla",
+        "Maleta de telecomunicaciones",
+        "Cables de fibra por separado",
+        "Cintas para medir",
+        "Máquina azul con medidores"
+    ];
+
+    // Cambiar entre pestañas
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        if(tabName === 'dashboard') {
+            document.querySelector('[onclick="switchTab(\'dashboard\')"]').classList.add('active');
+            document.getElementById('tab-dashboard').classList.add('active');
+            cargarDashboard();
+        } else {
+            document.querySelector('[onclick="switchTab(\'formulario\')"]').classList.add('active');
+            document.getElementById('tab-formulario').classList.add('active');
+        }
+    }
+
+    // Cargar y procesar datos desde Google Sheets
+    async function cargarDashboard() {
+        document.getElementById('loading-text').style.display = 'block';
+        document.getElementById('inventoryTable').style.display = 'none';
+        
+        try {
+            const response = await fetch(GOOGLE_WEB_APP_URL);
+            const resultado = await response.json();
+            
+            if (resultado.status === 'success') {
+                const registros = resultado.data;
+                const tbody = document.getElementById('inventoryBody');
+                tbody.innerHTML = '';
+
+                // Mapear el último estado real de cada equipo único
+                equiposBase.forEach(equipo => {
+                    // Buscar el registro más reciente de este equipo específico
+                    const ultimoRegistro = registros.find(r => r.articulo === equipo);
+                    
+                    let estadoHtml = '<span class="badge disponible">En Bodega</span>';
+                    let usuario = '-';
+                    let fecha = '-';
+                    
+                    if (ultimoRegistro) {
+                        fecha = new Date(ultimoRegistro.fecha).toLocaleDateString('es-CL', {hour: '2-digit', minute:'2-digit'});
+                        if (ultimoRegistro.estado === 'PRESTADO') {
+                            estadoHtml = `<span class="badge prestado">Prestado</span>`;
+                            usuario = ultimoRegistro.solicitante;
+                        } else {
+                            usuario = `Devuelto por ${ultimoRegistro.solicitante}`;
+                        }
+                    }
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${equipo}</strong></td>
+                            <td>${estadoHtml}</td>
+                            <td>${usuario}</td>
+                            <td><small>${fecha}</small></td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('loading-text').style.display = 'none';
+                document.getElementById('inventoryTable').style.display = 'table';
+            }
+        } catch (error) {
+            document.getElementById('loading-text').innerText = 'Error al conectar con la base de datos.';
+            console.error(error);
+        }
+    }
+
+    // Envío del Formulario
     document.getElementById('loanForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const submitBtn = document.getElementById('submitBtn');
         const msgDiv = document.getElementById('responseMessage');
         
-        // Bloquear botón mientras procesa
         submitBtn.disabled = true;
-        submitBtn.innerText = 'Procesando...';
+        submitBtn.innerText = 'Guardando en la nube...';
         msgDiv.style.display = 'none';
 
-        // Recolectar datos
         const payload = {
             solicitante: document.getElementById('solicitante').value,
             articulo: document.getElementById('articulo').value,
@@ -84,34 +203,31 @@
         };
 
         try {
-            // Enviar datos de forma asíncrona a Google
-            const response = await fetch(GOOGLE_WEB_APP_URL, {
+            await fetch(GOOGLE_WEB_APP_URL, {
                 method: 'POST',
-                mode: 'no-cors', // Evita problemas de políticas de navegador rígidas
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
-            // Al usar 'no-cors' no podemos leer la respuesta exacta, pero si llega acá el flujo se completó
             msgDiv.style.backgroundColor = '#dcfce7';
             msgDiv.style.color = '#166534';
-            msgDiv.style.innerHTML = '¡Registro procesado con éxito! El historial y los correos fueron actualizados.';
+            msgDiv.innerText = '¡Operación registrada con éxito! Planilla e email actualizados.';
             msgDiv.style.display = 'block';
-            
-            // Limpiar formulario
             document.getElementById('loanForm').reset();
-
         } catch (error) {
             msgDiv.style.backgroundColor = '#fee2e2';
             msgDiv.style.color = '#991b1b';
-            msgDiv.style.innerHTML = 'Error de conexión. Intente nuevamente.';
+            msgDiv.innerText = 'Error al registrar.';
             msgDiv.style.display = 'block';
-            console.error(error);
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerText = 'Enviar Registro';
+            submitBtn.innerText = 'Procesando Registro';
         }
     });
+
+    // Cargar datos apenas abra la página
+    window.onload = cargarDashboard;
 </script>
 
 </body>
