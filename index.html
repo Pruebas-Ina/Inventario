@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Externo de Gestión de Pedidos</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; padding: 20px; }
+        .container { max-width: 600px; margin: 30px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h2 { color: #1e3a8a; margin-top: 0; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        button { background-color: #2563eb; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
+        button:hover { background-color: #1d4ed8; }
+        .status-msg { margin-top: 15px; padding: 10px; border-radius: 4px; display: none; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Solicitud de Equipos e Insumos</h2>
+    <p style="color: #666; font-size: 14px;">Complete el formulario para registrar un préstamo o devolución en el sistema externo.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
+
+    <form id="loanForm">
+        <div class="form-group">
+            <label for="solicitante">Nombre del Técnico / Solicitante:</label>
+            <input type="text" id="solicitante" required placeholder="Ej: Juan Pérez">
+        </div>
+
+        <div class="form-group">
+            <label for="articulo">Seleccione el Artículo/Insumo:</label>
+            <select id="articulo" required>
+                <option value="">-- Seleccione una opción --</option>
+                <option value="Fusionadora térmica en maleta amarilla">Fusionadora térmica en maleta amarilla (con implementos)</option>
+                <option value="Maleta de telecomunicaciones">Maleta de telecomunicaciones (2 pares de guantes, cables de fibra, alicate)</option>
+                <option value="Cables de fibra por separado">Cables de fibra por separado</option>
+                <option value="Cintas para medir">Cintas para medir</option>
+                <option value="Máquina azul con medidores">Máquina azul con medidores</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="estado">Acción a realizar:</label>
+            <select id="estado" required>
+                <option value="PRESTADO">Retirar de Bodega (Préstamo)</option>
+                <option value="DEVUELTO">Reingresar a Bodega (Devolución)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="observaciones">Estado físico del equipo / Notas:</label>
+            <textarea id="observaciones" rows="3" placeholder="Ej: Se retira con todos sus componentes limpios / Se devuelve sin novedades..."></textarea>
+        </div>
+
+        <button type="submit" id="submitBtn">Enviar Registro</button>
+    </form>
+
+    <div id="responseMessage" class="status-msg"></div>
+</div>
+
+<script>
+    // PEGA AQUÍ LA URL QUE TE DIO GOOGLE APPS SCRIPT
+    const GOOGLE_WEB_APP_URL = 'TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI';
+
+    document.getElementById('loanForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('submitBtn');
+        const msgDiv = document.getElementById('responseMessage');
+        
+        // Bloquear botón mientras procesa
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Procesando...';
+        msgDiv.style.display = 'none';
+
+        // Recolectar datos
+        const payload = {
+            solicitante: document.getElementById('solicitante').value,
+            articulo: document.getElementById('articulo').value,
+            estado: document.getElementById('estado').value,
+            observaciones: document.getElementById('observaciones').value || 'Sin observaciones.'
+        };
+
+        try {
+            // Enviar datos de forma asíncrona a Google
+            const response = await fetch(GOOGLE_WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors', // Evita problemas de políticas de navegador rígidas
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            // Al usar 'no-cors' no podemos leer la respuesta exacta, pero si llega acá el flujo se completó
+            msgDiv.style.backgroundColor = '#dcfce7';
+            msgDiv.style.color = '#166534';
+            msgDiv.style.innerHTML = '¡Registro procesado con éxito! El historial y los correos fueron actualizados.';
+            msgDiv.style.display = 'block';
+            
+            // Limpiar formulario
+            document.getElementById('loanForm').reset();
+
+        } catch (error) {
+            msgDiv.style.backgroundColor = '#fee2e2';
+            msgDiv.style.color = '#991b1b';
+            msgDiv.style.innerHTML = 'Error de conexión. Intente nuevamente.';
+            msgDiv.style.display = 'block';
+            console.error(error);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Enviar Registro';
+        }
+    });
+</script>
+
+</body>
+</html>
