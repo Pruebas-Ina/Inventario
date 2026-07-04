@@ -6,50 +6,33 @@
     <title>Sistema de Inventario Institucional</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root {
-            --primary: #1e3a8a; --primary-hover: #1d4ed8;
-            --success: #10b981; --danger: #ef4444;
-            --bg-main: #f8fafc; --card-bg: #ffffff;
-            --text-dark: #0f172a; --border: #cbd5e1;
-        }
+        :root { --primary: #1e3a8a; --primary-hover: #1d4ed8; --success: #10b981; --danger: #ef4444; --bg-main: #f8fafc; --card-bg: #ffffff; --text-dark: #0f172a; --border: #cbd5e1; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-main); color: var(--text-dark); margin: 0; padding: 0; }
-        
-        /* Pantalla de Login */
         .login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .login-card { background: var(--card-bg); padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .login-card h2 { text-align: center; color: var(--primary); margin-top: 0; margin-bottom: 25px; }
-
-        /* Dashboard Principal */
         .app-container { display: none; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; }
         .navbar h1 { margin: 0; font-size: 20px; }
         .user-info { display: flex; align-items: center; gap: 15px; }
         .logout-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-
-        /* Estilo de Bloques Interactivos (Zonas) */
         .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 25px; }
         .zone-card { background: #e2e8f0; border: 2px solid var(--border); padding: 15px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
         .zone-card:hover { background: #cbd5e1; transform: translateY(-2px); }
         .zone-card.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-        /* Tablas e Interfaz de selección múltiple */
         .card { background: var(--card-bg); border-radius: 8px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; }
         .card-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         th { background: #f1f5f9; color: #64748b; }
-        
         .qty-input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; text-align: center; }
         .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .badge.available { background: #dcfce7; color: #166534; }
         .badge.unavailable { background: #fee2e2; color: #991b1b; }
-
-        /* Control de Vistas e Importador */
         .admin-only { display: none; }
         .import-zone { border: 3px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; background: #f8fafc; cursor: pointer; }
         .import-zone:hover { border-color: var(--primary); background: #f0fdf4; }
-        
         .btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
         .btn:hover { background: var(--primary-hover); }
         .btn-success { background: var(--success); }
@@ -84,19 +67,19 @@
             <h1 id="appTitle">Pañol Control Digital</h1>
             <div class="user-info">
                 <span id="sessionLabel" style="font-weight: bold;"></span>
-                <button class="logout-btn" onclick="logout()">Salir</button>
+                <button class="logout-btn" id="btnLogout">Salir</button>
             </div>
         </div>
 
         <h3 style="margin-bottom: 10px;">Filtrar Inventario por Zona Física</h3>
         <div class="zone-grid" id="zoneGrid">
-            <div class="zone-card active" onclick="filterByZone('TODOS')">Ver Todo</div>
-            <div class="zone-card" onclick="filterByZone('Bodega Telecomunicaciones')">Telecomunicaciones</div>
-            <div class="zone-card" onclick="filterByZone('Bodega de Hardware y Software')">Hardware y Software</div>
-            <div class="zone-card" onclick="filterByZone('Sala 207')">Sala 207</div>
-            <div class="zone-card" onclick="filterByZone('Maletas Arduino')">Maletas Arduino</div>
-            <div class="zone-card" onclick="filterByZone('Maletas raspberry')">Maletas Raspberry</div>
-            <div class="zone-card" onclick="filterByZone('Armarios Pasillo')">Armarios Pasillo</div>
+            <div class="zone-card active" data-zone="TODOS">Ver Todo</div>
+            <div class="zone-card" data-zone="Bodega Telecomunicaciones">Telecomunicaciones</div>
+            <div class="zone-card" data-zone="Bodega de Hardware y Software">Hardware y Software</div>
+            <div class="zone-card" data-zone="Sala 207">Sala 207</div>
+            <div class="zone-card" data-zone="Maletas Arduino">Maletas Arduino</div>
+            <div class="zone-card" data-zone="Maletas raspberry">Maletas Raspberry</div>
+            <div class="zone-card" data-zone="Armarios Pasillos">Armarios Pasillos</div>
         </div>
 
         <div class="card">
@@ -107,7 +90,7 @@
                         <option value="PRESTADO">Retirar Selección (Préstamo)</option>
                         <option value="DEVUELTO" class="admin-only">Reingresar Selección (Devolución)</option>
                     </select>
-                    <button class="btn btn-success" onclick="procesarPedidoMultiple()">Enviar Transacción Masiva</button>
+                    <button class="btn btn-success" id="btnProcesar">Enviar Transacción Masiva</button>
                 </div>
             </div>
             
@@ -132,10 +115,9 @@
 
         <div class="card admin-only">
             <h3>Panel de Infraestructura (Solo Administrador)</h3>
-            <p style="color:#64748b; font-size:14px;">Arrastra o selecciona el archivo Excel formateado para sobrescribir o actualizar la base de datos central.</p>
-            <div class="import-zone" onclick="document.getElementById('excelFile').click()">
-                <strong style="color: var(--primary);">Haga clic aquí para subir el Excel del Nuevo Inventario</strong>
-                <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;" onchange="importarExcel(this)">
+            <div class="import-zone" id="dropZone">
+                <strong style="color: var(--primary);">Haga clic aquí para subir el Excel del Nuevo Inventario (.xlsx)</strong>
+                <input type="file" id="excelFile" accept=".xlsx" style="display: none;">
             </div>
             <div id="importStatus" class="status-banner"></div>
         </div>
@@ -161,224 +143,6 @@
         </div>
     </div>
 
-<script>
-    // ⚠️ REEMPLAZA ESTO CON TU URL REAL DE GOOGLE APPS SCRIPT
-    const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
-    
-    let CONFIG_SESION = { usuario: "", rol: "" };
-    let CACHE_INVENTARIO = [];
-    let ZONA_ACTUAL = 'TODOS';
-
-    // 1. CONTROL DE ACCESO (LOGIN)
-    document.getElementById('loginForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const user = document.getElementById('loginUser').value;
-        const pass = document.getElementById('loginPass').value;
-        const errorDiv = document.getElementById('loginError');
-        
-        errorDiv.style.display = 'none';
-
-        try {
-            const response = await fetch(GOOGLE_API_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "LOGIN", usuario: user, clave: pass })
-            });
-            const res = await response.json();
-
-            if(res.status === 'success') {
-                CONFIG_SESION.usuario = res.usuario;
-                CONFIG_SESION.rol = res.rol;
-                
-                // Inicializar Interfaz según Rol
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'block';
-                document.getElementById('sessionLabel').innerText = `${res.usuario} (${res.rol})`;
-                
-                if(res.rol === 'Admin') {
-                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-                    document.getElementById('historialTitle').innerText = "Historial General de Auditoría";
-                }
-                
-                sincronizarSistema();
-            } else {
-                errorDiv.innerText = res.message;
-                errorDiv.style.display = 'block';
-            }
-        } catch(err) {
-            errorDiv.innerText = "Error crítico de conexión con el servidor.";
-            errorDiv.style.display = 'block';
-        }
-    });
-
-    // 2. SINCRONIZACIÓN DE DATOS (READ)
-    async function sincronizarSistema() {
-        document.getElementById('loadingInventory').style.display = 'block';
-        document.getElementById('inventoryTable').style.display = 'none';
-
-        try {
-            const url = `${GOOGLE_API_URL}?usuario=${encodeURIComponent(CONFIG_SESION.usuario)}&rol=${CONFIG_SESION.rol}`;
-            const response = await fetch(url);
-            const res = await response.json();
-
-            if(res.status === 'success') {
-                CACHE_INVENTARIO = res.inventario;
-                renderizarInventario();
-                renderizarHistorial(res.historial);
-            }
-        } catch(error) {
-            console.error("Error al sincronizar datos:", error);
-        }
-    }
-
-    // 3. RENDERIZADO DEL INVENTARIO POR BLOQUES/ZONAS
-    function filterByZone(zona) {
-        ZONA_ACTUAL = zona;
-        document.querySelectorAll('.zone-card').forEach(card => card.classList.remove('active'));
-        event.target.classList.add('active');
-        renderizarInventario();
-    }
-
-    function renderizarInventario() {
-        const tbody = document.getElementById('inventoryBody');
-        tbody.innerHTML = '';
-        
-        const filtrados = CACHE_INVENTARIO.filter(item => ZONA_ACTUAL === 'TODOS' || item.zona === ZONA_ACTUAL);
-        
-        if(filtrados.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; font-style:italic;">No hay elementos registrados en esta zona.</td></tr>`;
-        } else {
-            filtrados.forEach(item => {
-                const disponible = Number(item.disponibles);
-                const badge = disponible > 0 ? `<span class="badge available">${disponible} ${item.unidad}</span>` : `<span class="badge unavailable">Agotado</span>`;
-                
-                tbody.innerHTML += `
-                    <tr id="row-${item.id_item}">
-                        <td><input type="checkbox" class="item-select" value="${item.id_item}" ${disponible <= 0 ? 'disabled' : ''}></td>
-                        <td><small><code>${item.id_item}</code></small></td>
-                        <td><strong>${item.nombre}</strong></td>
-                        <td><span style="font-size:13px; color:#4b5563;">📦 ${item.zona}</span></td>
-                        <td style="text-align: center;">${badge}</td>
-                        <td><input type="number" class="qty-input" id="qty-${item.id_item}" value="1" min="1" max="${disponible}"></td>
-                        <td><input type="text" class="obs-input" id="obs-${item.id_item}" placeholder="Agregar nota..."></td>
-                    </tr>
-                `;
-            });
-        }
-        document.getElementById('loadingInventory').style.display = 'none';
-        document.getElementById('inventoryTable').style.display = 'table';
-    }
-
-    function renderizarHistorial(historial) {
-        const tbody = document.getElementById('historyBody');
-        tbody.innerHTML = '';
-        historial.forEach(h => {
-            const f = new Date(h.fecha).toLocaleDateString('es-CL', {hour:'2-digit', minute:'2-digit'});
-            const opStyle = h.tipo === 'PRESTADO' ? 'color:var(--danger);font-weight:bold;' : 'color:var(--success);font-weight:bold;';
-            tbody.innerHTML += `
-                <tr>
-                    <td><small>${f}</small></td>
-                    <td>${h.usuario}</td>
-                    <td><code>${h.id_item}</code></td>
-                    <td>${h.nombre}</td>
-                    <td>${h.cantidad}</td>
-                    <td style="${opStyle}">${h.tipo}</td>
-                    <td><small>${h.obs}</small></td>
-                </tr>
-            `;
-        });
-    }
-
-    // 4. ENVÍO MÚLTIPLE DE ARTÍCULOS A LA VEZ
-    async function procesarPedidoMultiple() {
-        const checkboxes = document.querySelectorAll('.item-select:checked');
-        if(checkboxes.length === 0) {
-            alert("Debe seleccionar al menos un artículo marcando la casilla izquierda.");
-            return;
-        }
-
-        const statusDiv = document.getElementById('actionStatus');
-        const tipoMovimiento = document.getElementById('bulkAction').value;
-        const itemsAProcesar = [];
-
-        checkboxes.forEach(cb => {
-            const id = cb.value;
-            const articuloCache = CACHE_INVENTARIO.find(i => i.id_item === id);
-            itemsAProcesar.push({
-                id_item: id,
-                nombre: articuloCache.nombre,
-                cantidad: document.getElementById(`qty-${id}`).value,
-                observaciones: document.getElementById(`obs-${id}`).value
-            });
-        });
-
-        statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b';
-        statusDiv.innerText = "Procesando el paquete masivo en la nube...";
-        statusDiv.style.display = 'block';
-
-        try {
-            const response = await fetch(GOOGLE_API_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: "PEDIDO_MULTIPLE",
-                    usuario: CONFIG_SESION.usuario,
-                    tipo_movimiento: tipoMovimiento,
-                    items: itemsAProcesar
-                })
-            });
-            const res = await response.json();
-
-            if(res.status === 'success') {
-                statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534';
-                statusDiv.innerText = "¡Transacción múltiple registrada con éxito! Correos despachados.";
-                sincronizarSistema();
-            }
-        } catch (e) {
-            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
-            statusDiv.innerText = "Error en la transacción masiva.";
-        }
-    }
-
-    // 5. IMPORTADOR DE EXCEL COMPLETO (SHEETJS)
-   function importarExcel(input) {
-    const file = input.files[0];
-    if(!file) return;
-
-    const reader = new FileReader();
-    const statusDiv = document.getElementById('importStatus');
-    statusDiv.style.display = 'block';
-    statusDiv.innerText = "Procesando archivo...";
-
-    reader.onload = async function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-        
-        // Mapeo inteligente (limpia espacios y mayúsculas)
-        const payloadData = json.map(row => ({
-            id_item: row['ID_Item'] || row['id_item'] || 'S/N',
-            nombre: row['Nombre'] || row['nombre'] || 'Artículo sin nombre',
-            zona: row['Zona'] || row['zona'] || 'Bodega Telecomunicaciones',
-            cantidad_total: row['Cantidad_Total'] || row['cantidad_total'] || 0,
-            unidad: row['Unidad'] || row['unidad'] || 'Unidad'
-        }));
-
-        try {
-            const response = await fetch(GOOGLE_API_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "IMPORTAR_INVENTARIO", data: payloadData })
-            });
-            const res = await response.json();
-            if(res.status === 'success') {
-                statusDiv.innerText = "¡Inventario actualizado!";
-                sincronizarSistema();
-            }
-        } catch(err) {
-            statusDiv.innerText = "Error al subir.";
-        }
-    };
-    reader.readAsArrayBuffer(file);
-}
-</script>
+    <script src="script.js"></script>
 </body>
 </html>
