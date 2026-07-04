@@ -13,12 +13,10 @@
         .login-card h2 { text-align: center; color: var(--primary); margin-top: 0; margin-bottom: 25px; }
         .app-container { display: none; max-width: 1200px; margin: 0 auto; padding: 20px; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; }
-        .navbar h1 { margin: 0; font-size: 20px; }
         .user-info { display: flex; align-items: center; gap: 15px; }
         .logout-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 25px; }
-        .zone-card { background: #e2e8f0; border: 2px solid var(--border); padding: 15px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        .zone-card:hover { background: #cbd5e1; transform: translateY(-2px); }
+        .zone-card { background: #e2e8f0; border: 2px solid var(--border); padding: 15px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .zone-card.active { background: var(--primary); color: white; border-color: var(--primary); }
         .card { background: var(--card-bg); border-radius: 8px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; }
         .card-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -32,9 +30,7 @@
         .badge.unavailable { background: #fee2e2; color: #991b1b; }
         .admin-only { display: none; }
         .import-zone { border: 3px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; background: #f8fafc; cursor: pointer; }
-        .import-zone:hover { border-color: var(--primary); background: #f0fdf4; }
         .btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
-        .btn:hover { background: var(--primary-hover); }
         .btn-success { background: var(--success); }
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; margin-bottom: 5px; font-weight: 600; }
@@ -43,20 +39,13 @@
     </style>
 </head>
 <body>
-
     <div id="loginOverlay" class="login-overlay">
         <div class="login-card">
             <h2>Acceso al Sistema</h2>
             <form id="loginForm">
-                <div class="input-group">
-                    <label for="loginUser">Nombre de Usuario:</label>
-                    <input type="text" id="loginUser" required placeholder="Ej: Profesor González">
-                </div>
-                <div class="input-group">
-                    <label for="loginPass">Contraseña:</label>
-                    <input type="password" id="loginPass" required placeholder="••••••••">
-                </div>
-                <button type="submit" class="btn" style="width: 100%;">Iniciar Sesión</button>
+                <div class="input-group"><label>Usuario:</label><input type="text" id="loginUser" required></div>
+                <div class="input-group"><label>Clave:</label><input type="password" id="loginPass" required></div>
+                <button type="submit" class="btn" style="width: 100%;">Ingresar</button>
             </form>
             <div id="loginError" class="status-banner" style="background:#fee2e2; color:#991b1b;"></div>
         </div>
@@ -71,7 +60,27 @@
             </div>
         </div>
 
-        <h3 style="margin-bottom: 10px;">Filtrar Inventario por Zona Física</h3>
+        <div class="card">
+            <h3 style="margin-top:0; color:var(--danger);">Equipos Pendientes / Préstamos Activos</h3>
+            <p style="color:#64748b; font-size:14px; margin-top:0;">Resumen automático de herramientas que aún no han sido devueltas a la bodega.</p>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Responsable</th>
+                            <th>ID Ítem</th>
+                            <th>Equipo</th>
+                            <th>Cantidad Adeudada</th>
+                            <th class="admin-only">Acción (Solo Admin)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pendientesBody"></tbody>
+                </table>
+            </div>
+            <div id="returnStatus" class="status-banner"></div>
+        </div>
+
+        <h3 style="margin-bottom: 10px;">Vitrina de Retiros por Zona Física</h3>
         <div class="zone-grid" id="zoneGrid">
             <div class="zone-card active" data-zone="TODOS">Ver Todo</div>
             <div class="zone-card" data-zone="Bodega Telecomunicaciones">Telecomunicaciones</div>
@@ -84,65 +93,39 @@
 
         <div class="card">
             <div class="card-header-action">
-                <h3 style="margin:0;">Catálogo de Equipamiento</h3>
-                <div style="display:flex; gap:10px;">
-                    <select id="bulkAction" style="padding: 10px; border-radius: 6px; border:1px solid var(--border); font-weight: bold;">
-                        <option value="PRESTADO">Retirar Selección (Préstamo)</option>
-                        <option value="DEVUELTO" class="admin-only">Reingresar Selección (Devolución)</option>
-                    </select>
-                    <button class="btn btn-success" id="btnProcesar">Enviar Transacción Masiva</button>
-                </div>
+                <h3 style="margin:0;">Solicitar Préstamo</h3>
+                <button class="btn btn-success" id="btnProcesar">Registrar Retiro de Selección</button>
             </div>
-            
-            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Sincronizando inventario con la nube...</div>
-            
+            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Sincronizando...</div>
             <table id="inventoryTable" style="display: none;">
-                <thead>
-                    <tr>
-                        <th style="width: 40px;">Sel.</th>
-                        <th>ID Ítem</th>
-                        <th>Descripción del Artículo</th>
-                        <th>Ubicación / Zona</th>
-                        <th style="text-align: center;">Disponibles</th>
-                        <th style="width: 80px;">Cant.</th>
-                        <th>Notas de Entrega</th>
-                    </tr>
-                </thead>
+                <thead><tr><th style="width: 40px;">Sel.</th><th>ID</th><th>Artículo</th><th>Zona</th><th style="text-align: center;">Stock</th><th style="width: 80px;">Cant.</th><th>Notas</th></tr></thead>
                 <tbody id="inventoryBody"></tbody>
             </table>
             <div id="actionStatus" class="status-banner"></div>
         </div>
 
         <div class="card admin-only">
-            <h3>Panel de Infraestructura (Solo Administrador)</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin:0;">Panel de Infraestructura</h3>
+                <button class="btn" id="btnExportar" style="background:#10b981;">📥 Descargar Base de Datos (Excel)</button>
+            </div>
             <div class="import-zone" id="dropZone">
-                <strong style="color: var(--primary);">Haga clic aquí para subir el Excel del Nuevo Inventario (.xlsx)</strong>
+                <strong style="color: var(--primary);">Haga clic aquí para subir y actualizar el Inventario (.xlsx)</strong>
                 <input type="file" id="excelFile" accept=".xlsx" style="display: none;">
             </div>
             <div id="importStatus" class="status-banner"></div>
         </div>
 
         <div class="card">
-            <h3 id="historialTitle">Mis Movimientos Recientes</h3>
+            <h3 id="historialTitle">Mis Movimientos</h3>
             <div style="overflow-x: auto; max-height: 300px;">
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Operador</th>
-                            <th>Código</th>
-                            <th>Artículo</th>
-                            <th>Cantidad</th>
-                            <th>Operación</th>
-                            <th>Observación</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Fecha</th><th>Operador</th><th>Código</th><th>Artículo</th><th>Cant.</th><th>Operación</th><th>Observación</th></tr></thead>
                     <tbody id="historyBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
