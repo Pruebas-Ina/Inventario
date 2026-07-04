@@ -1,5 +1,5 @@
 // ⚠️ NO OLVIDES PONER TU URL AQUÍ
-const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
+const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/execI';
 
 let CONFIG_SESION = { usuario: "", clave: "", rol: "" };
 let CACHE_INVENTARIO = [];
@@ -28,7 +28,14 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             document.getElementById('sessionLabel').innerText = `${res.usuario} (${res.rol})`;
             
             if(res.rol === 'Admin') {
-                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+                // CORRECCIÓN VISUAL: Diferenciar entre elementos normales y tablas
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    if(el.tagName === 'TH' || el.tagName === 'TD') {
+                        el.style.display = 'table-cell';
+                    } else {
+                        el.style.display = 'block';
+                    }
+                });
                 document.getElementById('historialTitle').innerText = "Historial General de Auditoría";
             }
             sincronizarSistema();
@@ -53,7 +60,7 @@ async function sincronizarSistema() {
             CACHE_INVENTARIO = res.inventario;
             renderizarInventario();
             renderizarHistorial(res.historial);
-            calcularYRenderizarPendientes(res.historial); // NUEVO CÁLCULO DE DEUDAS
+            calcularYRenderizarPendientes(res.historial);
         }
     } catch(error) { console.error("Error al sincronizar:", error); }
 }
@@ -62,7 +69,6 @@ async function sincronizarSistema() {
 function calcularYRenderizarPendientes(historial) {
     let balances = {};
     
-    // Suma los préstamos y resta las devoluciones por usuario e ítem
     historial.forEach(h => {
         let key = h.usuario + "|||" + h.id_item;
         if(!balances[key]) balances[key] = { usuario: h.usuario, id_item: h.id_item, nombre: h.nombre, balance: 0 };
@@ -71,7 +77,6 @@ function calcularYRenderizarPendientes(historial) {
         if(h.tipo === "DEVUELTO") balances[key].balance -= Number(h.cantidad);
     });
 
-    // Filtramos solo los que deben más de 0
     const pendientes = Object.values(balances).filter(b => b.balance > 0);
     const tbody = document.getElementById('pendientesBody');
     tbody.innerHTML = '';
@@ -84,12 +89,15 @@ function calcularYRenderizarPendientes(historial) {
 
     pendientes.forEach(p => {
         let adminControls = "";
-        // Si es Admin, mostramos el botón de devolver y el input de cantidad
         if(CONFIG_SESION.rol === 'Admin') {
+            // CORRECCIÓN: Limpiar espacios del nombre para el ID HTML
+            const idLimpio = p.usuario.replace(/\s+/g, '_'); 
+            
+            // Renderizamos la celda sin la clase problemática
             adminControls = `
-                <td class="admin-only">
+                <td style="vertical-align: middle;">
                     <div style="display:flex; gap:5px;">
-                        <input type="number" id="dev-qty-${p.usuario}-${p.id_item}" value="${p.balance}" min="1" max="${p.balance}" class="qty-input">
+                        <input type="number" id="dev-qty-${idLimpio}-${p.id_item}" value="${p.balance}" min="1" max="${p.balance}" class="qty-input">
                         <button class="btn btn-success" style="padding: 6px 12px; font-size:12px;" onclick="procesarDevolucionAdmin('${p.usuario}', '${p.id_item}', '${p.nombre}')">Devolver</button>
                     </div>
                 </td>
@@ -109,7 +117,11 @@ function calcularYRenderizarPendientes(historial) {
 
 // === FUNCIÓN EXCLUSIVA DEL ADMIN PARA DEVOLVER ===
 window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreItem) {
-    const qtyInput = document.getElementById(`dev-qty-${usuarioAfectado}-${idItem}`);
+    const idLimpio = usuarioAfectado.replace(/\s+/g, '_');
+    const qtyInput = document.getElementById(`dev-qty-${idLimpio}-${idItem}`);
+    
+    if(!qtyInput) { alert("Error visual: No se encontró la caja de cantidad."); return; }
+    
     const cantidadADevolver = qtyInput.value;
     const statusDiv = document.getElementById('returnStatus');
 
@@ -124,7 +136,7 @@ window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreI
             method: 'POST',
             body: JSON.stringify({
                 action: "PEDIDO_MULTIPLE",
-                usuario: CONFIG_SESION.usuario, // El Admin que opera
+                usuario: CONFIG_SESION.usuario, 
                 clave: CONFIG_SESION.clave,
                 tipo_movimiento: "DEVUELTO",
                 items: [{
@@ -132,14 +144,19 @@ window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreI
                     nombre: nombreItem,
                     cantidad: cantidadADevolver,
                     observaciones: "Recepcionado físicamente por Admin.",
-                    usuario_asignado: usuarioAfectado // El profe al que se le borra la deuda
+                    usuario_asignado: usuarioAfectado 
                 }]
             })
         });
         const res = await response.json();
         if(res.status === 'success') {
-            statusDiv.style.display = 'none';
-            sincronizarSistema(); // Recarga la tabla de deudas automáticamente
+            statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534';
+            statusDiv.innerText = "¡Devolución exitosa! Deuda saldada.";
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+            sincronizarSistema(); 
+        } else {
+            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
+            statusDiv.innerText = res.message || "Error al devolver.";
         }
     } catch (e) {
         statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
