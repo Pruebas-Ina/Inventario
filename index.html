@@ -3,215 +3,396 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Flexible de Inventario</title>
+    <title>Sistema de Inventario Institucional</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #1e3a8a; --success: #10b981; --danger: #ef4444; --dark: #1f2937; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; color: var(--dark); }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px; }
-        h2 { margin: 0; color: var(--primary); }
-        .tabs { display: flex; gap: 10px; }
-        .tab-btn { padding: 10px 18px; border: none; background: #e5e7eb; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .tab-btn.active { background: var(--primary); color: white; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: 600; margin-bottom: 6px; }
-        input, select, textarea { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        button.submit-btn { background: var(--primary); color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background-color: #f9fafb; color: #4b5563; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
-        .badge.prestado { background: #fee2e2; color: var(--danger); }
-        .badge.disponible { background: #dcfce7; color: var(--success); }
-        .loading { text-align: center; color: #6b7280; padding: 20px; font-style: italic; }
-        .status-msg { margin-top: 15px; padding: 12px; border-radius: 6px; display: none; text-align: center; font-weight: bold; }
+        :root {
+            --primary: #1e3a8a; --primary-hover: #1d4ed8;
+            --success: #10b981; --danger: #ef4444;
+            --bg-main: #f8fafc; --card-bg: #ffffff;
+            --text-dark: #0f172a; --border: #cbd5e1;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-main); color: var(--text-dark); margin: 0; padding: 0; }
+        
+        /* Pantalla de Login */
+        .login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .login-card { background: var(--card-bg); padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .login-card h2 { text-align: center; color: var(--primary); margin-top: 0; margin-bottom: 25px; }
+
+        /* Dashboard Principal */
+        .app-container { display: none; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .navbar h1 { margin: 0; font-size: 20px; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .logout-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        /* Estilo de Bloques Interactivos (Zonas) */
+        .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 25px; }
+        .zone-card { background: #e2e8f0; border: 2px solid var(--border); padding: 15px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .zone-card:hover { background: #cbd5e1; transform: translateY(-2px); }
+        .zone-card.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Tablas e Interfaz de selección múltiple */
+        .card { background: var(--card-bg); border-radius: 8px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .card-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f1f5f9; color: #64748b; }
+        
+        .qty-input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; text-align: center; }
+        .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge.available { background: #dcfce7; color: #166534; }
+        .badge.unavailable { background: #fee2e2; color: #991b1b; }
+
+        /* Control de Vistas e Importador */
+        .admin-only { display: none; }
+        .import-zone { border: 3px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; background: #f8fafc; cursor: pointer; }
+        .import-zone:hover { border-color: var(--primary); background: #f0fdf4; }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--success); }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; }
+        .status-banner { padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; margin-top: 15px; display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h2>Control de Equipos Dinámicos</h2>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('dashboard')">Panel de Control</button>
-            <button class="tab-btn" onclick="switchTab('formulario')">Registrar Movimiento</button>
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-card">
+            <h2>Acceso al Sistema</h2>
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="loginUser">Nombre de Usuario:</label>
+                    <input type="text" id="loginUser" required placeholder="Ej: Profesor González">
+                </div>
+                <div class="input-group">
+                    <label for="loginPass">Contraseña:</label>
+                    <input type="password" id="loginPass" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Iniciar Sesión</button>
+            </form>
+            <div id="loginError" class="status-banner" style="background:#fee2e2; color:#991b1b;"></div>
         </div>
     </div>
 
-    <div id="tab-dashboard" class="tab-content active">
-        <h3>Estado del Inventario Detectado</h3>
-        <div id="loading-text" class="loading">Sincronizando con Google Sheets...</div>
-        <table id="inventoryTable" style="display: none;">
-            <thead>
-                <tr>
-                    <th>Detalle del Equipo / Kit Armado</th>
-                    <th>Estado Actual</th>
-                    <th>Último Operador</th>
-                    <th>Fecha Registro</th>
-                </tr>
-            </thead>
-            <tbody id="inventoryBody">
-                </tbody>
-        </table>
+    <div id="appContainer" class="app-container">
+        <div class="navbar">
+            <h1 id="appTitle">Pañol Control Digital</h1>
+            <div class="user-info">
+                <span id="sessionLabel" style="font-weight: bold;"></span>
+                <button class="logout-btn" onclick="logout()">Salir</button>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 10px;">Filtrar Inventario por Zona Física</h3>
+        <div class="zone-grid" id="zoneGrid">
+            <div class="zone-card active" onclick="filterByZone('TODOS')">Ver Todo</div>
+            <div class="zone-card" onclick="filterByZone('Bodega Telecomunicaciones')">Telecomunicaciones</div>
+            <div class="zone-card" onclick="filterByZone('Bodega de Hardware y Software')">Hardware y Software</div>
+            <div class="zone-card" onclick="filterByZone('Sala 207')">Sala 207</div>
+            <div class="zone-card" onclick="filterByZone('Maletas Arduino')">Maletas Arduino</div>
+            <div class="zone-card" onclick="filterByZone('Maletas raspberry')">Maletas Raspberry</div>
+            <div class="zone-card" onclick="filterByZone('Armarios Pasillo')">Armarios Pasillo</div>
+        </div>
+
+        <div class="card">
+            <div class="card-header-action">
+                <h3 style="margin:0;">Catálogo de Equipamiento</h3>
+                <div style="display:flex; gap:10px;">
+                    <select id="bulkAction" style="padding: 10px; border-radius: 6px; border:1px solid var(--border); font-weight: bold;">
+                        <option value="PRESTADO">Retirar Selección (Préstamo)</option>
+                        <option value="DEVUELTO" class="admin-only">Reingresar Selección (Devolución)</option>
+                    </select>
+                    <button class="btn btn-success" onclick="procesarPedidoMultiple()">Enviar Transacción Masiva</button>
+                </div>
+            </div>
+            
+            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Sincronizando inventario con la nube...</div>
+            
+            <table id="inventoryTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">Sel.</th>
+                        <th>ID Ítem</th>
+                        <th>Descripción del Artículo</th>
+                        <th>Ubicación / Zona</th>
+                        <th style="text-align: center;">Disponibles</th>
+                        <th style="width: 80px;">Cant.</th>
+                        <th>Notas de Entrega</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+            </table>
+            <div id="actionStatus" class="status-banner"></div>
+        </div>
+
+        <div class="card admin-only">
+            <h3>Panel de Infraestructura (Solo Administrador)</h3>
+            <p style="color:#64748b; font-size:14px;">Arrastra o selecciona el archivo Excel formateado para sobrescribir o actualizar la base de datos central.</p>
+            <div class="import-zone" onclick="document.getElementById('excelFile').click()">
+                <strong style="color: var(--primary);">Haga clic aquí para subir el Excel del Nuevo Inventario</strong>
+                <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;" onchange="importarExcel(this)">
+            </div>
+            <div id="importStatus" class="status-banner"></div>
+        </div>
+
+        <div class="card">
+            <h3 id="historialTitle">Mis Movimientos Recientes</h3>
+            <div style="overflow-x: auto; max-height: 300px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Operador</th>
+                            <th>Código</th>
+                            <th>Artículo</th>
+                            <th>Cantidad</th>
+                            <th>Operación</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
-
-    <div id="tab-formulario" class="tab-content">
-        <h3>Registrar Salida o Entrada</h3>
-        <form id="loanForm">
-            <div class="form-group">
-                <label for="solicitante">Nombre del Responsable:</label>
-                <input type="text" id="solicitante" required placeholder="Ej: Carlos Mendoza">
-            </div>
-
-            <div class="form-group">
-                <label for="articulo">¿Qué se está llevando o devolviendo? (Escríbalo libremente):</label>
-                <input type="text" id="articulo" required placeholder="Ej: Fusionadora en maleta amarilla + 2 cables extra y alicate">
-            </div>
-
-            <div class="form-group">
-                <label for="estado">Operación:</label>
-                <select id="estado" required>
-                    <option value="PRESTADO">Retirar de Bodega (Préstamo)</option>
-                    <option value="DEVUELTO">Devolver a Bodega (Reingreso)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="observaciones">Notas adicionales del estado:</label>
-                <textarea id="observaciones" rows="3" placeholder="Ej: La maleta presenta un cierre suelto / Todo conforme..."></textarea>
-            </div>
-
-            <button type="submit" class="submit-btn" id="submitBtn">Procesar Registro</button>
-        </form>
-        <div id="responseMessage" class="status-msg"></div>
-    </div>
-</div>
 
 <script>
-    // ⚠️ REEMPLAZA CON TU URL REAL DE GOOGLE APPS SCRIPT
-    const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
+    // ⚠️ REEMPLAZA ESTO CON TU URL REAL DE GOOGLE APPS SCRIPT
+    const GOOGLE_API_URL = 'TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI';
+    
+    let CONFIG_SESION = { usuario: "", rol: "" };
+    let CACHE_INVENTARIO = [];
+    let ZONA_ACTUAL = 'TODOS';
 
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        
-        if(tabName === 'dashboard') {
-            document.querySelector('[onclick="switchTab(\'dashboard\')"]').classList.add('active');
-            document.getElementById('tab-dashboard').classList.add('active');
-            cargarDashboard();
-        } else {
-            document.querySelector('[onclick="switchTab(\'formulario\')"]').classList.add('active');
-            document.getElementById('tab-formulario').classList.add('active');
-        }
-    }
-
-    // El Dashboard ahora procesa dinámicamente cualquier texto que se haya ingresado
-    async function cargarDashboard() {
-        document.getElementById('loading-text').style.display = 'block';
-        document.getElementById('inventoryTable').style.display = 'none';
-        
-        try {
-            const response = await fetch(GOOGLE_WEB_APP_URL);
-            const resultado = await response.json();
-            
-            if (resultado.status === 'success') {
-                const registros = resultado.data;
-                const tbody = document.getElementById('inventoryBody');
-                tbody.innerHTML = '';
-
-                if(registros.length === 0) {
-                    document.getElementById('loading-text').innerText = 'No hay registros en la base de datos aún.';
-                    return;
-                }
-
-                // Agrupar dinámicamente para extraer el último estado de cada artículo único escrito
-                const ultimosEstados = {};
-                
-                // Al venir invertidos desde el Apps Script, el primero que aparezca en el loop es el más reciente
-                registros.forEach(reg => {
-                    const nombreLimpio = reg.articulo.trim();
-                    if (!ultimosEstados[nombreLimpio]) {
-                        ultimosEstados[nombreLimpio] = reg;
-                    }
-                });
-
-                // Renderizar la tabla con los elementos descubiertos en caliente
-                for (const nombreEquipo in ultimosEstados) {
-                    const reg = ultimosEstados[nombreEquipo];
-                    const fecha = new Date(reg.fecha).toLocaleDateString('es-CL', {hour: '2-digit', minute:'2-digit'});
-                    
-                    let estadoHtml = '<span class="badge disponible">En Bodega</span>';
-                    let operador = `Devuelto por ${reg.solicitante}`;
-
-                    if (reg.estado === 'PRESTADO') {
-                        estadoHtml = '<span class="badge prestado">Prestado</span>';
-                        operador = reg.solicitante;
-                    }
-
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${nombreEquipo}</strong></td>
-                            <td>${estadoHtml}</td>
-                            <td>${operador}</td>
-                            <td><small>${fecha}</small></td>
-                        </tr>
-                    `;
-                }
-
-                document.getElementById('loading-text').style.display = 'none';
-                document.getElementById('inventoryTable').style.display = 'table';
-            }
-        } catch (error) {
-            document.getElementById('loading-text').innerText = 'Error de sincronización. Compruebe la URL de la API.';
-            console.error(error);
-        }
-    }
-
-    // Envío de datos
-    document.getElementById('loanForm').addEventListener('submit', async function(e) {
+    // 1. CONTROL DE ACCESO (LOGIN)
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const submitBtn = document.getElementById('submitBtn');
-        const msgDiv = document.getElementById('responseMessage');
+        const user = document.getElementById('loginUser').value;
+        const pass = document.getElementById('loginPass').value;
+        const errorDiv = document.getElementById('loginError');
         
-        submitBtn.disabled = true;
-        submitBtn.innerText = 'Guardando de forma segura...';
-        msgDiv.style.display = 'none';
-
-        const payload = {
-            solicitante: document.getElementById('solicitante').value,
-            articulo: document.getElementById('articulo').value,
-            estado: document.getElementById('estado').value,
-            observaciones: document.getElementById('observaciones').value || 'Sin observaciones.'
-        };
+        errorDiv.style.display = 'none';
 
         try {
-            await fetch(GOOGLE_WEB_APP_URL, {
+            const response = await fetch(GOOGLE_API_URL, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ action: "LOGIN", usuario: user, clave: pass })
             });
+            const res = await response.json();
 
-            msgDiv.style.backgroundColor = '#dcfce7';
-            msgDiv.style.color = '#166534';
-            msgDiv.innerText = '¡Registrado! Los correos institucionales han sido notificados.';
-            msgDiv.style.display = 'block';
-            document.getElementById('loanForm').reset();
-        } catch (error) {
-            msgDiv.style.backgroundColor = '#fee2e2';
-            msgDiv.style.color = '#991b1b';
-            msgDiv.innerText = 'Error en el envío.';
-            msgDiv.style.display = 'block';
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerText = 'Procesando Registro';
+            if(res.status === 'success') {
+                CONFIG_SESION.usuario = res.usuario;
+                CONFIG_SESION.rol = res.rol;
+                
+                // Inicializar Interfaz según Rol
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'block';
+                document.getElementById('sessionLabel').innerText = `${res.usuario} (${res.rol})`;
+                
+                if(res.rol === 'Admin') {
+                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+                    document.getElementById('historialTitle').innerText = "Historial General de Auditoría";
+                }
+                
+                sincronizarSistema();
+            } else {
+                errorDiv.innerText = res.message;
+                errorDiv.style.display = 'block';
+            }
+        } catch(err) {
+            errorDiv.innerText = "Error crítico de conexión con el servidor.";
+            errorDiv.style.display = 'block';
         }
     });
 
-    window.onload = cargarDashboard;
-</script>
+    // 2. SINCRONIZACIÓN DE DATOS (READ)
+    async function sincronizarSistema() {
+        document.getElementById('loadingInventory').style.display = 'block';
+        document.getElementById('inventoryTable').style.display = 'none';
 
+        try {
+            const url = `${GOOGLE_API_URL}?usuario=${encodeURIComponent(CONFIG_SESION.usuario)}&rol=${CONFIG_SESION.rol}`;
+            const response = await fetch(url);
+            const res = await response.json();
+
+            if(res.status === 'success') {
+                CACHE_INVENTARIO = res.inventario;
+                renderizarInventario();
+                renderizarHistorial(res.historial);
+            }
+        } catch(error) {
+            console.error("Error al sincronizar datos:", error);
+        }
+    }
+
+    // 3. RENDERIZADO DEL INVENTARIO POR BLOQUES/ZONAS
+    function filterByZone(zona) {
+        ZONA_ACTUAL = zona;
+        document.querySelectorAll('.zone-card').forEach(card => card.classList.remove('active'));
+        event.target.classList.add('active');
+        renderizarInventario();
+    }
+
+    function renderizarInventario() {
+        const tbody = document.getElementById('inventoryBody');
+        tbody.innerHTML = '';
+        
+        const filtrados = CACHE_INVENTARIO.filter(item => ZONA_ACTUAL === 'TODOS' || item.zona === ZONA_ACTUAL);
+        
+        if(filtrados.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; font-style:italic;">No hay elementos registrados en esta zona.</td></tr>`;
+        } else {
+            filtrados.forEach(item => {
+                const disponible = Number(item.disponibles);
+                const badge = disponible > 0 ? `<span class="badge available">${disponible} ${item.unidad}</span>` : `<span class="badge unavailable">Agotado</span>`;
+                
+                tbody.innerHTML += `
+                    <tr id="row-${item.id_item}">
+                        <td><input type="checkbox" class="item-select" value="${item.id_item}" ${disponible <= 0 ? 'disabled' : ''}></td>
+                        <td><small><code>${item.id_item}</code></small></td>
+                        <td><strong>${item.nombre}</strong></td>
+                        <td><span style="font-size:13px; color:#4b5563;">📦 ${item.zona}</span></td>
+                        <td style="text-align: center;">${badge}</td>
+                        <td><input type="number" class="qty-input" id="qty-${item.id_item}" value="1" min="1" max="${disponible}"></td>
+                        <td><input type="text" class="obs-input" id="obs-${item.id_item}" placeholder="Agregar nota..."></td>
+                    </tr>
+                `;
+            });
+        }
+        document.getElementById('loadingInventory').style.display = 'none';
+        document.getElementById('inventoryTable').style.display = 'table';
+    }
+
+    function renderizarHistorial(historial) {
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = '';
+        historial.forEach(h => {
+            const f = new Date(h.fecha).toLocaleDateString('es-CL', {hour:'2-digit', minute:'2-digit'});
+            const opStyle = h.tipo === 'PRESTADO' ? 'color:var(--danger);font-weight:bold;' : 'color:var(--success);font-weight:bold;';
+            tbody.innerHTML += `
+                <tr>
+                    <td><small>${f}</small></td>
+                    <td>${h.usuario}</td>
+                    <td><code>${h.id_item}</code></td>
+                    <td>${h.nombre}</td>
+                    <td>${h.cantidad}</td>
+                    <td style="${opStyle}">${h.tipo}</td>
+                    <td><small>${h.obs}</small></td>
+                </tr>
+            `;
+        });
+    }
+
+    // 4. ENVÍO MÚLTIPLE DE ARTÍCULOS A LA VEZ
+    async function procesarPedidoMultiple() {
+        const checkboxes = document.querySelectorAll('.item-select:checked');
+        if(checkboxes.length === 0) {
+            alert("Debe seleccionar al menos un artículo marcando la casilla izquierda.");
+            return;
+        }
+
+        const statusDiv = document.getElementById('actionStatus');
+        const tipoMovimiento = document.getElementById('bulkAction').value;
+        const itemsAProcesar = [];
+
+        checkboxes.forEach(cb => {
+            const id = cb.value;
+            const articuloCache = CACHE_INVENTARIO.find(i => i.id_item === id);
+            itemsAProcesar.push({
+                id_item: id,
+                nombre: articuloCache.nombre,
+                cantidad: document.getElementById(`qty-${id}`).value,
+                observaciones: document.getElementById(`obs-${id}`).value
+            });
+        });
+
+        statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b';
+        statusDiv.innerText = "Procesando el paquete masivo en la nube...";
+        statusDiv.style.display = 'block';
+
+        try {
+            const response = await fetch(GOOGLE_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: "PEDIDO_MULTIPLE",
+                    usuario: CONFIG_SESION.usuario,
+                    tipo_movimiento: tipoMovimiento,
+                    items: itemsAProcesar
+                })
+            });
+            const res = await response.json();
+
+            if(res.status === 'success') {
+                statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534';
+                statusDiv.innerText = "¡Transacción múltiple registrada con éxito! Correos despachados.";
+                sincronizarSistema();
+            }
+        } catch (e) {
+            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
+            statusDiv.innerText = "Error en la transacción masiva.";
+        }
+    }
+
+    // 5. IMPORTADOR DE EXCEL COMPLETO (SHEETJS)
+    function importarExcel(input) {
+        const file = input.files[0];
+        if(!file) return;
+
+        const reader = new FileReader();
+        const statusDiv = document.getElementById('importStatus');
+        
+        statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b';
+        statusDiv.innerText = "Leyendo estructura del documento Excel...";
+        statusDiv.style.display = 'block';
+
+        reader.onload = async function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convierte el Excel a un arreglo JSON limpio
+            const json = XLSX.utils.sheet_to_json(worksheet);
+            
+            // Validar y mapear la matriz para mandarla a Google Sheets
+            const payloadData = json.map(row => ({
+                id_item: row['ID_Item'] || row['id_item'] || 'S/N',
+                nombre: row['Nombre'] || row['nombre'] || 'Artículo sin nombre',
+                zona: row['Zona'] || row['zona'] || 'Bodega Telecomunicaciones',
+                cantidad_total: row['Cantidad_Total'] || row['cantidad_total'] || 0,
+                unidad: row['Unidad'] || row['unidad'] || 'Unidad'
+            }));
+
+            statusDiv.innerText = "Inyectando nuevos datos en la base de datos de Google...";
+
+            try {
+                const response = await fetch(GOOGLE_API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: "IMPORTAR_INVENTARIO", data: payloadData })
+                });
+                const res = await response.json();
+
+                if(res.status === 'success') {
+                    statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534';
+                    statusDiv.innerText = "¡Excelente! El inventario general ha sido sobrescrito y sincronizado.";
+                    sincronizarSistema();
+                }
+            } catch(err) {
+                statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
+                statusDiv.innerText = "Error crítico al inyectar el archivo en la nube.";
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function logout() {
+        location.reload();
+    }
+</script>
 </body>
 </html>
