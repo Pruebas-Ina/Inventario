@@ -254,59 +254,36 @@ document.getElementById('btnExportar').addEventListener('click', () => {
 // === IMPORTAR EXCEL ===
 document.getElementById('dropZone').addEventListener('click', () => document.getElementById('excelFile').click());
 document.getElementById('excelFile').addEventListener('change', function(e) {
+
     const file = e.target.files[0]; if(!file) return;
 
     const reader = new FileReader();
+
     const statusDiv = document.getElementById('importStatus');
+
     statusDiv.style.display = 'block'; statusDiv.innerText = "Leyendo archivo Excel...";
 
+
+
     reader.onload = async function(e) {
+
         const data = new Uint8Array(e.target.result);
+
         const workbook = XLSX.read(data, { type: 'array' });
+
         const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+
         
-        // NORMALIZADOR INTELIGENTE: Borra automáticamente espacios, guiones y mayúsculas
-        const payloadData = json.map(row => {
-            let rowLimpia = {};
-            for (let clave in row) {
-                let claveNormalizada = clave.toLowerCase().replace(/[\s_]/g, '');
-                rowLimpia[claveNormalizada] = row[clave];
-            }
 
-            return {
-                id_item: rowLimpia['iditem'] || 'S/N', 
-                nombre: rowLimpia['nombre'] || 'Artículo sin nombre',
-                zona: rowLimpia['zona'] || 'Bodega', 
-                // Esto lee "Cantidad_Total", "cantidad total" o "cantidad_total" sin colapsar
-                cantidad_total: Number(rowLimpia['cantidadtotal']) || 0, 
-                unidad: rowLimpia['unidad'] || 'Unidad'
-            };
-        });
+        const payloadData = json.map(row => ({
 
-        statusDiv.innerText = "Actualizando base de datos...";
-        try {
-            const response = await fetch(GOOGLE_API_URL, {
-                method: 'POST', 
-                body: JSON.stringify({ 
-                    action: "IMPORTAR_INVENTARIO", 
-                    usuario: CONFIG_SESION.usuario, 
-                    clave: CONFIG_SESION.clave, 
-                    data: payloadData 
-                })
-            });
-            const res = await response.json();
-            if(res.status === 'success') {
-                statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534'; statusDiv.innerText = "¡Actualizado con éxito!";
-                sincronizarSistema();
-            } else { 
-                statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b'; statusDiv.innerText = res.message; 
-            }
-        } catch(err) { 
-            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b'; statusDiv.innerText = "Error de conexión."; 
-        }
-    };
-    reader.readAsArrayBuffer(file);
-});
+            id_item: row['ID_Item'] || row['id_item'] || 'S/N', nombre: row['Nombre'] || row['nombre'] || 'Artículo sin nombre',
+
+            zona: row['Zona'] || row['zona'] || 'Bodega', cantidad_total: row['Cantidad_Total'] || row['cantidad_total'] || 0,
+
+            unidad: row['Unidad'] || row['unidad'] || 'Unidad'
+
+        }));
 
         statusDiv.innerText = "Actualizando base de datos...";
         try {
