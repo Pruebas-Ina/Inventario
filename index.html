@@ -339,60 +339,46 @@
     }
 
     // 5. IMPORTADOR DE EXCEL COMPLETO (SHEETJS)
-    function importarExcel(input) {
-        const file = input.files[0];
-        if(!file) return;
+   function importarExcel(input) {
+    const file = input.files[0];
+    if(!file) return;
 
-        const reader = new FileReader();
-        const statusDiv = document.getElementById('importStatus');
+    const reader = new FileReader();
+    const statusDiv = document.getElementById('importStatus');
+    statusDiv.style.display = 'block';
+    statusDiv.innerText = "Procesando archivo...";
+
+    reader.onload = async function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
         
-        statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b';
-        statusDiv.innerText = "Leyendo estructura del documento Excel...";
-        statusDiv.style.display = 'block';
+        // Mapeo inteligente (limpia espacios y mayúsculas)
+        const payloadData = json.map(row => ({
+            id_item: row['ID_Item'] || row['id_item'] || 'S/N',
+            nombre: row['Nombre'] || row['nombre'] || 'Artículo sin nombre',
+            zona: row['Zona'] || row['zona'] || 'Bodega Telecomunicaciones',
+            cantidad_total: row['Cantidad_Total'] || row['cantidad_total'] || 0,
+            unidad: row['Unidad'] || row['unidad'] || 'Unidad'
+        }));
 
-        reader.onload = async function(e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            
-            // Convierte el Excel a un arreglo JSON limpio
-            const json = XLSX.utils.sheet_to_json(worksheet);
-            
-            // Validar y mapear la matriz para mandarla a Google Sheets
-            const payloadData = json.map(row => ({
-                id_item: row['ID_Item'] || row['id_item'] || 'S/N',
-                nombre: row['Nombre'] || row['nombre'] || 'Artículo sin nombre',
-                zona: row['Zona'] || row['zona'] || 'Bodega Telecomunicaciones',
-                cantidad_total: row['Cantidad_Total'] || row['cantidad_total'] || 0,
-                unidad: row['Unidad'] || row['unidad'] || 'Unidad'
-            }));
-
-            statusDiv.innerText = "Inyectando nuevos datos en la base de datos de Google...";
-
-            try {
-                const response = await fetch(GOOGLE_API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: "IMPORTAR_INVENTARIO", data: payloadData })
-                });
-                const res = await response.json();
-
-                if(res.status === 'success') {
-                    statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534';
-                    statusDiv.innerText = "¡Excelente! El inventario general ha sido sobrescrito y sincronizado.";
-                    sincronizarSistema();
-                }
-            } catch(err) {
-                statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
-                statusDiv.innerText = "Error crítico al inyectar el archivo en la nube.";
+        try {
+            const response = await fetch(GOOGLE_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "IMPORTAR_INVENTARIO", data: payloadData })
+            });
+            const res = await response.json();
+            if(res.status === 'success') {
+                statusDiv.innerText = "¡Inventario actualizado!";
+                sincronizarSistema();
             }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    function logout() {
-        location.reload();
-    }
+        } catch(err) {
+            statusDiv.innerText = "Error al subir.";
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
 </script>
 </body>
 </html>
