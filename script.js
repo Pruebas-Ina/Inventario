@@ -1,6 +1,7 @@
 // ⚠️ NO OLVIDES PONER TU URL AQUÍ
 const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
 
+
 let CONFIG_SESION = { usuario: "", clave: "", rol: "" };
 let CACHE_INVENTARIO = [];
 let ZONA_ACTUAL = 'TODOS';
