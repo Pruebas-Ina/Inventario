@@ -3,75 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Inventario Institucional</title>
+    <title>Portal de Inventario - INACAP</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #1e3a8a; --primary-hover: #1d4ed8; --success: #10b981; --danger: #ef4444; --bg-main: #f8fafc; --card-bg: #ffffff; --text-dark: #0f172a; --border: #cbd5e1; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-main); color: var(--text-dark); margin: 0; padding: 0; }
-        .login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-        .login-card { background: var(--card-bg); padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .login-card h2 { text-align: center; color: var(--primary); margin-top: 0; margin-bottom: 25px; }
-        .app-container { display: none; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; }
-        .user-info { display: flex; align-items: center; gap: 15px; }
-        .logout-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 25px; }
-        .zone-card { background: #e2e8f0; border: 2px solid var(--border); padding: 15px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .zone-card.active { background: var(--primary); color: white; border-color: var(--primary); }
-        .card { background: var(--card-bg); border-radius: 8px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; }
-        .card-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f1f5f9; color: #64748b; }
-        .qty-input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; text-align: center; }
-        .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .badge.available { background: #dcfce7; color: #166534; }
-        .badge.unavailable { background: #fee2e2; color: #991b1b; }
+        /* PALETA DE COLORES OFICIAL E INSTITUCIONAL (INACAP STYLE) */
+        :root { 
+            --inacap-red: #D6001C;          /* Rojo oficial INACAP */
+            --inacap-red-hover: #A80012;    /* Rojo oscuro para hovers */
+            --inacap-dark: #232B30;         /* Gris oscuro/antracita institucional */
+            --inacap-gray-light: #F4F6F7;   /* Fondo claro para la aplicación */
+            --card-bg: #FFFFFF; 
+            --text-main: #2C3E50; 
+            --border-color: #D5DBDB;
+            --success: #27AE60; 
+            --danger: #E74C3C; 
+        }
+
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background-color: var(--inacap-gray-light); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        /* LOGIN CON LOOK CORPORATIVO */
+        .login-overlay { 
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: linear-gradient(135deg, var(--inacap-dark) 0%, #111518 100%); 
+            display: flex; align-items: center; justify-content: center; z-index: 9999; 
+        }
+        .login-card { 
+            background: var(--card-bg); 
+            padding: 40px; 
+            border-radius: 4px; /* Bordes menos redondeados, más corporativos */
+            width: 100%; max-width: 380px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+            border-top: 5px solid var(--inacap-red); /* Detalle superior rojo */
+        }
+        .login-card h2 { 
+            text-align: center; 
+            color: var(--inacap-dark); 
+            margin-top: 0; margin-bottom: 5px; 
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 22px;
+            letter-spacing: 0.5px;
+        }
+        .login-card-subtitle {
+            text-align: center;
+            color: #7F8C8D;
+            font-size: 13px;
+            margin-bottom: 30px;
+        }
+
+        /* NAVBAR ESTILO INTRANET */
+        .app-container { display: none; max-width: 1200px; margin: 0 auto; padding: 25px 20px; }
+        .navbar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: var(--inacap-dark); 
+            color: white; 
+            padding: 14px 25px; 
+            border-radius: 4px; 
+            margin-bottom: 25px; 
+            border-left: 6px solid var(--inacap-red); /* Distintivo rojo lateral */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+        .navbar h1 { margin: 0; font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .user-info { display: flex; align-items: center; gap: 15px; font-size: 14px; }
+        .logout-btn { 
+            background: transparent; border: 1px solid #7F8C8D; color: #BDC3C7; 
+            padding: 5px 12px; border-radius: 3px; cursor: pointer; transition: all 0.2s; 
+        }
+        .logout-btn:hover { background: var(--danger); border-color: var(--danger); color: white; }
+
+        /* FILTROS / BOTONES DE ZONA */
+        .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 25px; }
+        .zone-card { 
+            background: #FFFFFF; border: 1px solid var(--border-color); padding: 12px; 
+            text-align: center; border-radius: 4px; cursor: pointer; font-weight: 600; 
+            font-size: 13px; color: var(--inacap-dark); transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .zone-card:hover { border-color: var(--inacap-red); color: var(--inacap-red); background: #FCF3F3; }
+        .zone-card.active { background: var(--inacap-red); color: white; border-color: var(--inacap-red); }
+
+        /* TARJETAS DE CONTENIDO */
+        .card { 
+            background: var(--card-bg); border-radius: 4px; padding: 25px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; 
+            border: 1px solid var(--border-color);
+        }
+        .card h3 { color: var(--inacap-dark); border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px; margin-top: 0; font-size: 16px; text-transform: uppercase; }
+        .card-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px; }
+        .card-header-action h3 { border: none; padding: 0; margin: 0; }
+
+        /* TABLAS INSTITUCIONALES */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #E5E8E8; }
+        th { background: var(--inacap-dark); color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; }
+        tr:hover { background-color: #F9EBEA; } /* Sutil highlight rojo al pasar el mouse */
+        
+        /* INPUTS Y COMPONENTES */
+        .qty-input { width: 55px; padding: 5px; border: 1px solid var(--border-color); border-radius: 3px; text-align: center; }
+        .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 3px; box-sizing: border-box; }
+        
+        /* BADGES */
+        .badge { padding: 3px 8px; border-radius: 2px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge.available { background: #E8F8F5; color: #117A65; }
+        .badge.unavailable { background: #FADBD8; color: #78281F; }
+        
         .admin-only { display: none; }
-        .import-zone { border: 3px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; background: #f8fafc; cursor: pointer; }
-        .btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
-        .btn-success { background: var(--success); }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; font-weight: 600; }
-        .input-group input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; }
-        .status-banner { padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; margin-top: 15px; display: none; }
+        
+        /* ZONA DE CARGA DE EXCEL */
+        .import-zone { 
+            border: 2px dashed #95A5A6; padding: 25px; text-align: center; 
+            border-radius: 4px; background: #FBFCFC; cursor: pointer; transition: all 0.2s; 
+        }
+        .import-zone:hover { border-color: var(--inacap-red); background: #FDEDEC; }
+        
+        /* BOTONES */
+        .btn { 
+            background: var(--inacap-dark); color: white; border: none; 
+            padding: 10px 20px; border-radius: 4px; font-size: 14px; 
+            font-weight: 600; cursor: pointer; transition: background 0.2s; 
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .btn:hover { background: #111518; }
+        .btn-success { background: var(--inacap-red); }
+        .btn-success:hover { background: var(--inacap-red-hover); }
+        
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #34495E; font-size: 14px; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        .input-group input:focus { border-color: var(--inacap-red); outline: none; }
+        
+        .status-banner { padding: 12px; border-radius: 4px; text-align: center; font-weight: bold; margin-top: 15px; display: none; font-size: 13px; }
     </style>
 </head>
 <body>
+
     <div id="loginOverlay" class="login-overlay">
         <div class="login-card">
-            <h2>Acceso al Sistema</h2>
+            <h2>INACAP</h2>
+            <div class="login-card-subtitle">Sistema de Control de Inventario y Pañol</div>
             <form id="loginForm">
-                <div class="input-group"><label>Usuario:</label><input type="text" id="loginUser" required></div>
-                <div class="input-group"><label>Clave:</label><input type="password" id="loginPass" required></div>
-                <button type="submit" class="btn" style="width: 100%;">Ingresar</button>
+                <div class="input-group">
+                    <label>Nombre de Usuario:</label>
+                    <input type="text" id="loginUser" required placeholder="Ej: Profesor González">
+                </div>
+                <div class="input-group">
+                    <label>Contraseña:</label>
+                    <input type="password" id="loginPass" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-success" style="width: 100%;">Ingresar al Portal</button>
             </form>
-            <div id="loginError" class="status-banner" style="background:#fee2e2; color:#991b1b;"></div>
+            <div id="loginError" class="status-banner" style="background:#FADBD8; color:#78281F;"></div>
         </div>
     </div>
 
     <div id="appContainer" class="app-container">
         <div class="navbar">
-            <h1 id="appTitle">Pañol Control Digital</h1>
+            <h1 id="appTitle">Control de Inventario y Equipos</h1>
             <div class="user-info">
-                <span id="sessionLabel" style="font-weight: bold;"></span>
-                <button class="logout-btn" id="btnLogout">Salir</button>
+                <span id="sessionLabel"></span>
+                <button class="logout-btn" id="btnLogout">Cerrar Sesión</button>
             </div>
         </div>
 
         <div class="card">
-            <h3 style="margin-top:0; color:var(--danger);">Equipos Pendientes / Préstamos Activos</h3>
-            <p style="color:#64748b; font-size:14px; margin-top:0;">Resumen automático de herramientas que aún no han sido devueltas a la bodega.</p>
+            <h3 style="color:var(--inacap-red);">Préstamos Activos / Equipos Pendientes</h3>
+            <p style="color:#7F8C8D; font-size:13px; margin-top:0; margin-bottom: 15px;">Listado de control para el seguimiento de artículos fuera de bodega.</p>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Responsable</th>
                             <th>ID Ítem</th>
-                            <th>Equipo</th>
-                            <th>Cantidad Adeudada</th>
-                            <th class="admin-only">Acción (Solo Admin)</th>
+                            <th>Equipo Adeudado</th>
+                            <th>Cantidad</th>
+                            <th class="admin-only">Acción de Entrega</th>
                         </tr>
                     </thead>
                     <tbody id="pendientesBody"></tbody>
@@ -80,9 +190,9 @@
             <div id="returnStatus" class="status-banner"></div>
         </div>
 
-        <h3 style="margin-bottom: 10px;">Vitrina de Retiros por Zona Física</h3>
+        <h4 style="margin-bottom: 10px; text-transform: uppercase; font-size: 13px; color: #7F8C8D;">Filtrar por Ubicación Física</h4>
         <div class="zone-grid" id="zoneGrid">
-            <div class="zone-card active" data-zone="TODOS">Ver Todo</div>
+            <div class="zone-card active" data-zone="TODOS">Ver Todo el Stock</div>
             <div class="zone-card" data-zone="Bodega Telecomunicaciones">Telecomunicaciones</div>
             <div class="zone-card" data-zone="Bodega de Hardware y Software">Hardware y Software</div>
             <div class="zone-card" data-zone="Sala 207">Sala 207</div>
@@ -93,34 +203,54 @@
 
         <div class="card">
             <div class="card-header-action">
-                <h3 style="margin:0;">Solicitar Préstamo</h3>
-                <button class="btn btn-success" id="btnProcesar">Registrar Retiro de Selección</button>
+                <h3>Vitrina de Solicitud de Materiales</h3>
+                <button class="btn btn-success" id="btnProcesar">Registrar Préstamo de Selección</button>
             </div>
-            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Sincronizando...</div>
+            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Conectando con servidores de stock...</div>
             <table id="inventoryTable" style="display: none;">
-                <thead><tr><th style="width: 40px;">Sel.</th><th>ID</th><th>Artículo</th><th>Zona</th><th style="text-align: center;">Stock</th><th style="width: 80px;">Cant.</th><th>Notas</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">Sel.</th>
+                        <th>ID</th>
+                        <th>Descripción del Artículo</th>
+                        <th>Ubicación</th>
+                        <th style="text-align: center;">Stock</th>
+                        <th style="width: 80px;">Cant.</th>
+                        <th>Notas de Solicitud</th>
+                    </tr>
+                </thead>
                 <tbody id="inventoryBody"></tbody>
             </table>
             <div id="actionStatus" class="status-banner"></div>
         </div>
 
         <div class="card admin-only">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin:0;">Panel de Infraestructura</h3>
-                <button class="btn" id="btnExportar" style="background:#10b981;">📥 Descargar Base de Datos (Excel)</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px;">
+                <h3 style="margin:0;">Administración de Infraestructura</h3>
+                <button class="btn" id="btnExportar" style="background:var(--success);">📥 Exportar Planilla Maestra (.xlsx)</button>
             </div>
             <div class="import-zone" id="dropZone">
-                <strong style="color: var(--primary);">Haga clic aquí para subir y actualizar el Inventario (.xlsx)</strong>
+                <strong style="color: var(--inacap-dark);">Arrastre o seleccione el archivo Excel para actualizar el catálogo (.xlsx)</strong>
                 <input type="file" id="excelFile" accept=".xlsx" style="display: none;">
             </div>
             <div id="importStatus" class="status-banner"></div>
         </div>
 
         <div class="card">
-            <h3 id="historialTitle">Mis Movimientos</h3>
+            <h3 id="historialTitle">Registro Histórico de Movimientos</h3>
             <div style="overflow-x: auto; max-height: 300px;">
                 <table>
-                    <thead><tr><th>Fecha</th><th>Operador</th><th>Código</th><th>Artículo</th><th>Cant.</th><th>Operación</th><th>Observación</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Operador</th>
+                            <th>Código</th>
+                            <th>Artículo</th>
+                            <th>Cant.</th>
+                            <th>Operación</th>
+                            <th>Detalle/Observación</th>
+                        </tr>
+                    </thead>
                     <tbody id="historyBody"></tbody>
                 </table>
             </div>
