@@ -116,25 +116,49 @@ document.querySelectorAll('.zone-card').forEach(card => {
     });
 });
 
+// === RENDERIZAR VITRINA (AQUÍ SE PIDEN LAS CANTIDADES) ===
 function renderizarInventario() {
     const tbody = document.getElementById('inventoryBody'); tbody.innerHTML = '';
     const terminoBusqueda = document.getElementById('searchInput').value.toLowerCase();
     
     const filtrados = CACHE_INVENTARIO.filter(item => {
         const matchZona = (ZONA_ACTUAL === 'TODOS' || item.zona === ZONA_ACTUAL);
-        const matchTexto = (item.id_item.toLowerCase().includes(terminoBusqueda) || item.nombre.toLowerCase().includes(terminoBusqueda));
+        const idTexto = String(item.id_item || "").toLowerCase();
+        const nombreTexto = String(item.nombre || "").toLowerCase();
+        const matchTexto = (idTexto.includes(terminoBusqueda) || nombreTexto.includes(terminoBusqueda));
         return matchZona && matchTexto;
     });
     
-    if(filtrados.length === 0) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No se encontraron resultados.</td></tr>`; return; }
+    if(filtrados.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No se encontraron resultados.</td></tr>`; return; }
     
     filtrados.forEach(item => {
         const disponible = Number(item.disponibles);
         const estaEnCarrito = CARRITO.some(c => c.id_item === item.id_item);
         const badge = disponible > 0 ? `<span class="badge available">${disponible} Disp.</span>` : `<span class="badge unavailable">Agotado</span>`;
-        let botonAccion = disponible <= 0 ? `<span style="font-size:12px; color:#95A5A6;">No disponible</span>` : estaEnCarrito ? `<span class="badge" style="background:#34495E; color:white;">En carrito</span>` : `<button class="btn btn-add" onclick="agregarAlCarrito('${item.id_item}')">Añadir al Carrito</button>`;
+        
+        let inputCant = `<input type="number" id="pre-qty-${item.id_item}" class="qty-input" value="1" min="1" max="${disponible}" style="width: 50px;">`;
+        let inputObs = `<input type="text" id="pre-obs-${item.id_item}" class="obs-input" placeholder="Nota de uso..." style="width: 100%;">`;
+        let botonAccion = "";
 
-        tbody.innerHTML += `<tr><td><code>${item.id_item}</code></td><td><strong>${item.nombre}</strong></td><td><span style="font-size:12px; color:#7F8C8D;">📦 ${item.zona}</span></td><td style="text-align: center;">${badge}</td><td>${botonAccion}</td></tr>`;
+        if(disponible <= 0) {
+            botonAccion = `<span style="font-size:12px; color:#95A5A6;">Agotado</span>`;
+            inputCant = "-"; inputObs = "-";
+        } else if (estaEnCarrito) {
+            botonAccion = `<span class="badge" style="background:#34495E; color:white;">En carrito</span>`;
+            inputCant = "-"; inputObs = "-";
+        } else {
+            botonAccion = `<button class="btn btn-add" onclick="agregarAlCarrito('${item.id_item}')">Añadir</button>`;
+        }
+
+        tbody.innerHTML += `
+            <tr>
+                <td><code>${item.id_item}</code></td>
+                <td><strong>${item.nombre}</strong><br><span style="font-size:11px; color:#7F8C8D;">📦 ${item.zona}</span></td>
+                <td style="text-align: center;">${badge}</td>
+                <td>${inputCant}</td>
+                <td>${inputObs}</td>
+                <td>${botonAccion}</td>
+            </tr>`;
     });
     document.getElementById('loadingInventory').style.display = 'none'; document.getElementById('inventoryTable').style.display = 'table';
 }
@@ -148,10 +172,16 @@ function renderizarHistorial(historial) {
     });
 }
 
+// === CARRITO INTELIGENTE ===
 window.agregarAlCarrito = function(idItem) {
     const item = CACHE_INVENTARIO.find(i => i.id_item === idItem);
     if(item && !CARRITO.some(c => c.id_item === idItem)) {
-        CARRITO.push({ ...item, nota: "" }); renderizarCarrito(); renderizarInventario(); 
+        // Captura la cantidad y la nota DESDE la tabla principal antes de agregarlo
+        const qty = document.getElementById(`pre-qty-${idItem}`).value;
+        const obs = document.getElementById(`pre-obs-${idItem}`).value;
+        CARRITO.push({ ...item, cantidadPedida: qty, nota: obs }); 
+        renderizarCarrito(); 
+        renderizarInventario(); // Refresca para bloquear la fila añadida
     }
 }
 
@@ -165,12 +195,13 @@ function renderizarCarrito() {
     card.style.display = 'block';
 
     CARRITO.forEach(item => {
+        // El carrito ahora solo MUESTRA la información (No tiene inputs que se reinicien)
         tbody.innerHTML += `
             <tr>
                 <td><code>${item.id_item}</code></td>
                 <td><strong>${item.nombre}</strong></td>
-                <td><input type="number" class="qty-input" id="cart-qty-${item.id_item}" value="1" min="1" max="${item.disponibles}"></td>
-                <td><input type="text" class="obs-input" id="cart-obs-${item.id_item}" placeholder="Comentarios (opcional)..." value="${item.nota}"></td>
+                <td style="text-align:center; font-weight:bold;">${item.cantidadPedida}</td>
+                <td><small>${item.nota || 'Sin notas'}</small></td>
                 <td><button class="btn" style="background:var(--danger); padding: 5px 10px;" onclick="quitarDelCarrito('${item.id_item}')">X</button></td>
             </tr>`;
     });
@@ -180,9 +211,10 @@ document.getElementById('btnConfirmarCarrito').addEventListener('click', async (
     if(CARRITO.length === 0) return;
     const statusDiv = document.getElementById('cartStatus');
     const itemsAProcesar = CARRITO.map(c => ({ 
-        id_item: c.id_item, nombre: c.nombre, 
-        cantidad: document.getElementById(`cart-qty-${c.id_item}`).value, 
-        observaciones: sanitizarTexto(document.getElementById(`cart-obs-${c.id_item}`).value) 
+        id_item: c.id_item, 
+        nombre: c.nombre, 
+        cantidad: c.cantidadPedida, 
+        observaciones: sanitizarTexto(c.nota) 
     }));
 
     statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b'; statusDiv.innerText = "Despachando solicitud..."; statusDiv.style.display = 'block';
@@ -197,7 +229,7 @@ document.getElementById('btnConfirmarCarrito').addEventListener('click', async (
     } catch (e) { statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = "Error en el servidor."; }
 });
 
-// === DESCARGA DIFERIDA DEL HISTORIAL COMPLETOS ===
+// === EXPORTAR HISTORIAL MENSUAL (AUDITORÍA COMPLETA) ===
 document.getElementById('btnExportarHistorial').addEventListener('click', async () => {
     if(CONFIG_SESION.rol !== 'Admin') return alert("Acceso denegado.");
     const btn = document.getElementById('btnExportarHistorial');
@@ -236,9 +268,11 @@ document.getElementById('btnExportarHistorial').addEventListener('click', async 
     btn.innerText = textoOriginal; btn.disabled = false;
 });
 
-// === EXPORTAR PLANTILLA OFICIAL INACAP ===
+// === EXPORTAR STOCK (FORMATO OFICIAL ERP INACAP) ===
 document.getElementById('btnExportar').addEventListener('click', () => {
     if(CACHE_INVENTARIO.length === 0) return alert("No hay datos disponibles para exportar.");
+    
+    // 1. Cabeceras estrictas del ERP
     const ws_data = [
         [null, null, null, null, null, null, "SEDE", "VALPARAÍSO", null, "RESPONSABLE CUSTODIA", "ÁREA INFORMÁTICA"],
         [null, null, null, null, null, null, "EDIFICIO / SECTOR", "SEDE CENTRAL", null, "FECHA INVENTARIO", new Date().toLocaleDateString('es-CL')],
@@ -249,22 +283,36 @@ document.getElementById('btnExportar').addEventListener('click', () => {
         [null, null, "Articulo 1", "Articulo 2", "Código Art", "Grupo Art", "Descr Familia Art", "Uni Medida", "Fecha Ingreso", "Tipo movimiento", "Cantidad Mov", "Doc Respaldo", "Fecha Vencimiento", "Prog Estudio Solicitante", "Área Solicitante"]
     ];
 
+    // 2. Mapeo del Inventario Físico ("Inventario Inicial" en jerga ERP)[cite: 3]
     CACHE_INVENTARIO.forEach(item => {
-        ws_data.push([ null, null, item.nombre, "", item.id_item, "MATERIALES_INS", "SEDE", item.unidad, new Date().toLocaleDateString('es-CL'), "Inventario Inicial", item.total, "Sistema Pañol", "", "", "" ]);
+        ws_data.push([ 
+            null, null, 
+            item.nombre,                     // Articulo 1
+            "",                              // Articulo 2 
+            item.id_item,                    // Código Art 
+            "MATERIALES_INS",                // Grupo Art 
+            "SEDE",                          // Descr Familia Art
+            item.unidad || "UNI",            // Uni Medida
+            new Date().toLocaleDateString('es-CL'), // Fecha Ingreso
+            "Inventario Inicial",            // Tipo movimiento (Así declaran Stock)
+            item.total,                      // Cantidad Mov (Cantidad Total Física)
+            "Sistema Interno Pañol",         // Doc Respaldo
+            "", "", "" 
+        ]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventarios pañoles");
-    XLSX.writeFile(wb, "Planilla_Inventario_Valparaiso.xlsx");
+    XLSX.writeFile(wb, "Inventario_Stock_INACAP.xlsx");
 });
 
-// === IMPORTADOR DE TU PLANTILLA LOCAL ===
+// === IMPORTADOR DE TU EXCEL BASE LOCAL (7 COLUMNAS) ===
 document.getElementById('dropZone').addEventListener('click', () => document.getElementById('excelFile').click());
 document.getElementById('excelFile').addEventListener('change', function(e) {
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader(); const statusDiv = document.getElementById('importStatus');
-    statusDiv.style.display = 'block'; statusDiv.innerText = "Actualizando catálogo...";
+    statusDiv.style.display = 'block'; statusDiv.innerText = "Actualizando catálogo local...";
 
     reader.onload = async function(e) {
         const data = new Uint8Array(e.target.result);
