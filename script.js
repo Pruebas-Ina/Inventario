@@ -7,11 +7,17 @@ let CACHE_HISTORIAL = [];
 let CARRITO = [];
 let ZONA_ACTUAL = 'TODOS';
 
+// === SEGURIDAD Y NORMALIZACIÓN ===
 function sanitizarTexto(texto) {
     if (!texto) return "Sin observaciones.";
     const div = document.createElement('div'); div.innerText = texto; return div.innerHTML;
 }
 
+function normalizarTexto(texto) {
+    return String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// === INICIO DE SESIÓN ===
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const user = document.getElementById('loginUser').value; const pass = document.getElementById('loginPass').value;
@@ -38,6 +44,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
 
 document.getElementById('btnLogout').addEventListener('click', () => location.reload());
 
+// === SINCRONIZACIÓN CON LA NUBE ===
 async function sincronizarSistema() {
     document.getElementById('loadingInventory').style.display = 'block';
     document.getElementById('inventoryTable').style.display = 'none';
@@ -52,6 +59,7 @@ async function sincronizarSistema() {
     } catch(error) { console.error("Error al sincronizar:", error); }
 }
 
+// === CÁLCULO DE DEUDAS ===
 function calcularYRenderizarPendientes(historial) {
     let balances = {};
     historial.forEach(h => {
@@ -62,7 +70,7 @@ function calcularYRenderizarPendientes(historial) {
     });
 
     const pendientes = Object.values(balances).filter(b => b.balance > 0);
-    const tbody = document.getElementById('pendientesBody'); tbody.innerHTML = '';
+    const tbody = document.getElementById('pendientesBody'); 
 
     if(pendientes.length === 0) {
         let cols = CONFIG_SESION.rol === 'Admin' ? 5 : 4;
@@ -70,6 +78,7 @@ function calcularYRenderizarPendientes(historial) {
         return;
     }
 
+    let htmlContent = ""; 
     pendientes.forEach(p => {
         let adminControls = "";
         const idLimpio = p.usuario.replace(/\s+/g, '_'); 
@@ -82,8 +91,9 @@ function calcularYRenderizarPendientes(historial) {
                     </div>
                 </td>`;
         }
-        tbody.innerHTML += `<tr><td><strong>${p.usuario}</strong></td><td><code>${p.id_item}</code></td><td>${p.nombre}</td><td style="font-weight:bold; color:var(--danger);">${p.balance}</td>${adminControls}</tr>`;
+        htmlContent += `<tr><td><strong>${p.usuario}</strong></td><td><code>${p.id_item}</code></td><td>${p.nombre}</td><td style="font-weight:bold; color:var(--danger);">${p.balance}</td>${adminControls}</tr>`;
     });
+    tbody.innerHTML = htmlContent; 
 }
 
 window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreItem) {
@@ -99,7 +109,8 @@ window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreI
         const response = await fetch(GOOGLE_API_URL, {
             method: 'POST', body: JSON.stringify({
                 action: "PEDIDO_MULTIPLE", usuario: CONFIG_SESION.usuario, clave: CONFIG_SESION.clave, tipo_movimiento: "DEVUELTO",
-                items: [{ id_item: idItem, nombre: nombreItem, cantidad: cantidad, observaciones: "Recepción Admin", usuario_asignado: usuarioAfectado }]
+                nota_general: "Recepción administrativa",
+                items: [{ id_item: idItem, nombre: nombreItem, cantidad: cantidad, usuario_asignado: usuarioAfectado }]
             })
         });
         const res = await response.json();
@@ -107,7 +118,12 @@ window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreI
     } catch (e) { statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = "Error."; }
 }
 
-document.getElementById('searchInput').addEventListener('keyup', renderizarInventario);
+// === BUSCADOR INTELIGENTE Y EFICIENTE (DEBOUNCING) ===
+let timeoutBusqueda;
+document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(timeoutBusqueda);
+    timeoutBusqueda = setTimeout(renderizarInventario, 300); 
+});
 
 document.querySelectorAll('.zone-card').forEach(card => {
     card.addEventListener('click', (e) => {
@@ -116,72 +132,81 @@ document.querySelectorAll('.zone-card').forEach(card => {
     });
 });
 
-// === RENDERIZAR VITRINA (AQUÍ SE PIDEN LAS CANTIDADES) ===
 function renderizarInventario() {
-    const tbody = document.getElementById('inventoryBody'); tbody.innerHTML = '';
-    const terminoBusqueda = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('inventoryBody'); 
+    const rawSearch = document.getElementById('searchInput').value;
+    const terminoBusqueda = normalizarTexto(rawSearch).trim();
+    const terminos = terminoBusqueda.split(/\s+/);
     
     const filtrados = CACHE_INVENTARIO.filter(item => {
         const matchZona = (ZONA_ACTUAL === 'TODOS' || item.zona === ZONA_ACTUAL);
-        const idTexto = String(item.id_item || "").toLowerCase();
-        const nombreTexto = String(item.nombre || "").toLowerCase();
-        const matchTexto = (idTexto.includes(terminoBusqueda) || nombreTexto.includes(terminoBusqueda));
-        return matchZona && matchTexto;
+        if(!matchZona) return false;
+        
+        if(terminoBusqueda === "") return true;
+
+        const idSinGuiones = String(item.id_item || "").replace(/-/g, "");
+        const superCadena = normalizarTexto(item.id_item + " " + idSinGuiones + " " + item.nombre + " " + item.zona);
+        
+        return terminos.every(t => superCadena.includes(t));
     });
     
-    if(filtrados.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No se encontraron resultados.</td></tr>`; return; }
+    if(filtrados.length === 0) { 
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No se encontraron resultados para "${rawSearch}".</td></tr>`; 
+        return; 
+    }
     
+    let htmlContent = ""; 
     filtrados.forEach(item => {
         const disponible = Number(item.disponibles);
         const estaEnCarrito = CARRITO.some(c => c.id_item === item.id_item);
         const badge = disponible > 0 ? `<span class="badge available">${disponible} Disp.</span>` : `<span class="badge unavailable">Agotado</span>`;
         
-        let inputCant = `<input type="number" id="pre-qty-${item.id_item}" class="qty-input" value="1" min="1" max="${disponible}" style="width: 50px;">`;
-        let inputObs = `<input type="text" id="pre-obs-${item.id_item}" class="obs-input" placeholder="Nota de uso..." style="width: 100%;">`;
+        let inputCant = `<input type="number" id="pre-qty-${item.id_item}" class="qty-input" value="1" min="1" max="${disponible}">`;
         let botonAccion = "";
 
         if(disponible <= 0) {
             botonAccion = `<span style="font-size:12px; color:#95A5A6;">Agotado</span>`;
-            inputCant = "-"; inputObs = "-";
+            inputCant = "-"; 
         } else if (estaEnCarrito) {
             botonAccion = `<span class="badge" style="background:#34495E; color:white;">En carrito</span>`;
-            inputCant = "-"; inputObs = "-";
+            inputCant = "-"; 
         } else {
             botonAccion = `<button class="btn btn-add" onclick="agregarAlCarrito('${item.id_item}')">Añadir</button>`;
         }
 
-        tbody.innerHTML += `
+        htmlContent += `
             <tr>
                 <td><code>${item.id_item}</code></td>
                 <td><strong>${item.nombre}</strong><br><span style="font-size:11px; color:#7F8C8D;">📦 ${item.zona}</span></td>
                 <td style="text-align: center;">${badge}</td>
                 <td>${inputCant}</td>
-                <td>${inputObs}</td>
                 <td>${botonAccion}</td>
             </tr>`;
     });
-    document.getElementById('loadingInventory').style.display = 'none'; document.getElementById('inventoryTable').style.display = 'table';
+    
+    tbody.innerHTML = htmlContent; 
+    document.getElementById('loadingInventory').style.display = 'none'; 
+    document.getElementById('inventoryTable').style.display = 'table';
 }
 
 function renderizarHistorial(historial) {
-    const tbody = document.getElementById('historyBody'); tbody.innerHTML = '';
+    const tbody = document.getElementById('historyBody'); 
+    let htmlContent = "";
     historial.forEach(h => {
         const f = new Date(h.fecha).toLocaleDateString('es-CL', {hour:'2-digit', minute:'2-digit'});
         const opStyle = h.tipo === 'PRESTADO' ? 'color:var(--danger);font-weight:bold;' : 'color:var(--success);font-weight:bold;';
-        tbody.innerHTML += `<tr><td><small>${f}</small></td><td>${h.usuario}</td><td><code>${h.id_item}</code></td><td>${h.nombre}</td><td>${h.cantidad}</td><td style="${opStyle}">${h.tipo}</td><td><small>${h.obs}</small></td></tr>`;
+        htmlContent += `<tr><td><small>${f}</small></td><td>${h.usuario}</td><td><code>${h.id_item}</code></td><td>${h.nombre}</td><td>${h.cantidad}</td><td style="${opStyle}">${h.tipo}</td><td><small>${h.obs}</small></td></tr>`;
     });
+    tbody.innerHTML = htmlContent;
 }
 
-// === CARRITO INTELIGENTE ===
+// === LÓGICA DEL CARRITO ===
 window.agregarAlCarrito = function(idItem) {
     const item = CACHE_INVENTARIO.find(i => i.id_item === idItem);
     if(item && !CARRITO.some(c => c.id_item === idItem)) {
-        // Captura la cantidad y la nota DESDE la tabla principal antes de agregarlo
         const qty = document.getElementById(`pre-qty-${idItem}`).value;
-        const obs = document.getElementById(`pre-obs-${idItem}`).value;
-        CARRITO.push({ ...item, cantidadPedida: qty, nota: obs }); 
-        renderizarCarrito(); 
-        renderizarInventario(); // Refresca para bloquear la fila añadida
+        CARRITO.push({ ...item, cantidadPedida: qty }); 
+        renderizarCarrito(); renderizarInventario(); 
     }
 }
 
@@ -190,41 +215,62 @@ window.quitarDelCarrito = function(idItem) {
 }
 
 function renderizarCarrito() {
-    const card = document.getElementById('cartCard'); const tbody = document.getElementById('cartBody'); tbody.innerHTML = '';
-    if(CARRITO.length === 0) { card.style.display = 'none'; return; }
+    const card = document.getElementById('cartCard'); const tbody = document.getElementById('cartBody'); 
+    if(CARRITO.length === 0) { 
+        card.style.display = 'none'; 
+        document.getElementById('notaGeneralPedido').value = ''; // Limpia la nota (textarea) si el carrito se vacía
+        return; 
+    }
+    
     card.style.display = 'block';
+    let htmlContent = "";
 
     CARRITO.forEach(item => {
-        // El carrito ahora solo MUESTRA la información (No tiene inputs que se reinicien)
-        tbody.innerHTML += `
+        htmlContent += `
             <tr>
                 <td><code>${item.id_item}</code></td>
                 <td><strong>${item.nombre}</strong></td>
                 <td style="text-align:center; font-weight:bold;">${item.cantidadPedida}</td>
-                <td><small>${item.nota || 'Sin notas'}</small></td>
                 <td><button class="btn" style="background:var(--danger); padding: 5px 10px;" onclick="quitarDelCarrito('${item.id_item}')">X</button></td>
             </tr>`;
     });
+    tbody.innerHTML = htmlContent;
 }
 
 document.getElementById('btnConfirmarCarrito').addEventListener('click', async () => {
     if(CARRITO.length === 0) return;
     const statusDiv = document.getElementById('cartStatus');
+    
+    // Captura del bloque grande de texto
+    const notaGenRaw = document.getElementById('notaGeneralPedido').value;
+    const notaGeneralLimpia = sanitizarTexto(notaGenRaw);
+
     const itemsAProcesar = CARRITO.map(c => ({ 
         id_item: c.id_item, 
         nombre: c.nombre, 
-        cantidad: c.cantidadPedida, 
-        observaciones: sanitizarTexto(c.nota) 
+        cantidad: c.cantidadPedida
     }));
 
-    statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b'; statusDiv.innerText = "Despachando solicitud..."; statusDiv.style.display = 'block';
+    statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b'; statusDiv.innerText = "Despachando solicitud y enviando correo..."; statusDiv.style.display = 'block';
 
     try {
-        const response = await fetch(GOOGLE_API_URL, { method: 'POST', body: JSON.stringify({ action: "PEDIDO_MULTIPLE", usuario: CONFIG_SESION.usuario, clave: CONFIG_SESION.clave, tipo_movimiento: "PRESTADO", items: itemsAProcesar }) });
+        const response = await fetch(GOOGLE_API_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ 
+                action: "PEDIDO_MULTIPLE", 
+                usuario: CONFIG_SESION.usuario, 
+                clave: CONFIG_SESION.clave, 
+                tipo_movimiento: "PRESTADO", 
+                nota_general: notaGeneralLimpia, // Se envía la nota centralizada
+                items: itemsAProcesar 
+            }) 
+        });
         const res = await response.json();
         if(res.status === 'success') {
             statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534'; statusDiv.innerText = "¡Préstamo autorizado!";
-            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000); sincronizarSistema();
+            document.getElementById('notaGeneralPedido').value = ''; // Limpia el textarea tras el éxito
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000); 
+            sincronizarSistema();
         }
     } catch (e) { statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = "Error en el servidor."; }
 });
@@ -234,7 +280,7 @@ document.getElementById('btnExportarHistorial').addEventListener('click', async 
     if(CONFIG_SESION.rol !== 'Admin') return alert("Acceso denegado.");
     const btn = document.getElementById('btnExportarHistorial');
     const textoOriginal = btn.innerText;
-    btn.innerText = "⏳ Construyendo reporte desde la nube..."; btn.disabled = true;
+    btn.innerText = "⏳ Construyendo reporte..."; btn.disabled = true;
 
     try {
         const response = await fetch(GOOGLE_API_URL, { method: 'POST', body: JSON.stringify({ action: "DESCARGAR_HISTORIAL_COMPLETO", usuario: CONFIG_SESION.usuario, clave: CONFIG_SESION.clave }) });
@@ -252,7 +298,7 @@ document.getElementById('btnExportarHistorial').addEventListener('click', async 
                 if(!historialPorMes[nombreHoja]) historialPorMes[nombreHoja] = [];
                 historialPorMes[nombreHoja].push({
                     "Fecha y Hora": fechaObj.toLocaleString('es-CL'), "Operador/Profesor": h.usuario, "ID": h.id_item,
-                    "Descripción del Artículo": h.nombre, "Tipo de Operación": h.tipo, "Cantidad": h.cantidad, "Observaciones / Notas": h.obs
+                    "Descripción del Artículo": h.nombre, "Tipo de Operación": h.tipo, "Cantidad": h.cantidad, "Nota General del Pedido": h.obs
                 });
             });
 
@@ -272,7 +318,6 @@ document.getElementById('btnExportarHistorial').addEventListener('click', async 
 document.getElementById('btnExportar').addEventListener('click', () => {
     if(CACHE_INVENTARIO.length === 0) return alert("No hay datos disponibles para exportar.");
     
-    // 1. Cabeceras estrictas del ERP
     const ws_data = [
         [null, null, null, null, null, null, "SEDE", "VALPARAÍSO", null, "RESPONSABLE CUSTODIA", "ÁREA INFORMÁTICA"],
         [null, null, null, null, null, null, "EDIFICIO / SECTOR", "SEDE CENTRAL", null, "FECHA INVENTARIO", new Date().toLocaleDateString('es-CL')],
@@ -283,21 +328,10 @@ document.getElementById('btnExportar').addEventListener('click', () => {
         [null, null, "Articulo 1", "Articulo 2", "Código Art", "Grupo Art", "Descr Familia Art", "Uni Medida", "Fecha Ingreso", "Tipo movimiento", "Cantidad Mov", "Doc Respaldo", "Fecha Vencimiento", "Prog Estudio Solicitante", "Área Solicitante"]
     ];
 
-    // 2. Mapeo del Inventario Físico ("Inventario Inicial" en jerga ERP)[cite: 3]
     CACHE_INVENTARIO.forEach(item => {
         ws_data.push([ 
-            null, null, 
-            item.nombre,                     // Articulo 1
-            "",                              // Articulo 2 
-            item.id_item,                    // Código Art 
-            "MATERIALES_INS",                // Grupo Art 
-            "SEDE",                          // Descr Familia Art
-            item.unidad || "UNI",            // Uni Medida
-            new Date().toLocaleDateString('es-CL'), // Fecha Ingreso
-            "Inventario Inicial",            // Tipo movimiento (Así declaran Stock)
-            item.total,                      // Cantidad Mov (Cantidad Total Física)
-            "Sistema Interno Pañol",         // Doc Respaldo
-            "", "", "" 
+            null, null, item.nombre, "", item.id_item, "MATERIALES_INS", "SEDE", item.unidad || "UNI", 
+            new Date().toLocaleDateString('es-CL'), "Inventario Inicial", item.total, "Sistema Interno Pañol", "", "", "" 
         ]);
     });
 
