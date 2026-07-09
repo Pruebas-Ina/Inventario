@@ -1,152 +1,81 @@
 <!DOCTYPE html>
 <html lang="es">
-    
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal de Inventario - INACAP</title>
+    <!-- Librería para leer/escribir Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        /* PALETA DE COLORES OFICIAL E INSTITUCIONAL (INACAP STYLE) */
+        /* PALETA INACAP */
         :root { 
-            --inacap-red: #D6001C;          /* Rojo oficial INACAP */
-            --inacap-red-hover: #A80012;    /* Rojo oscuro para hovers */
-            --inacap-dark: #232B30;         /* Gris oscuro/antracita institucional */
-            --inacap-gray-light: #F4F6F7;   /* Fondo claro para la aplicación */
-            --card-bg: #FFFFFF; 
-            --text-main: #2C3E50; 
-            --border-color: #D5DBDB;
-            --success: #27AE60; 
-            --danger: #E74C3C; 
+            --inacap-red: #D6001C; --inacap-red-hover: #A80012; 
+            --inacap-dark: #232B30; --inacap-gray-light: #F4F6F7; 
+            --card-bg: #FFFFFF; --text-main: #2C3E50; 
+            --border-color: #D5DBDB; --success: #27AE60; --danger: #E74C3C; 
         }
 
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            background-color: var(--inacap-gray-light); 
-            color: var(--text-main); 
-            margin: 0; 
-            padding: 0; 
-        }
-
-        /* LOGIN CON LOOK CORPORATIVO */
-        .login-overlay { 
-            position: fixed; top:0; left:0; width:100%; height:100%; 
-            background: linear-gradient(135deg, var(--inacap-dark) 0%, #111518 100%); 
-            display: flex; align-items: center; justify-content: center; z-index: 9999; 
-        }
-        .login-card { 
-            background: var(--card-bg); 
-            padding: 40px; 
-            border-radius: 4px; /* Bordes menos redondeados, más corporativos */
-            width: 100%; max-width: 380px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
-            border-top: 5px solid var(--inacap-red); /* Detalle superior rojo */
-        }
-        .login-card h2 { 
-            text-align: center; 
-            color: var(--inacap-dark); 
-            margin-top: 0; margin-bottom: 5px; 
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 22px;
-            letter-spacing: 0.5px;
-        }
-        .login-card-subtitle {
-            text-align: center;
-            color: #7F8C8D;
-            font-size: 13px;
-            margin-bottom: 30px;
-        }
-
-        /* NAVBAR ESTILO INTRANET */
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--inacap-gray-light); color: var(--text-main); margin: 0; padding: 0; }
+        
+        .login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, var(--inacap-dark) 0%, #111518 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .login-card { background: var(--card-bg); padding: 40px; border-radius: 4px; width: 100%; max-width: 380px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); border-top: 5px solid var(--inacap-red); }
+        .login-card h2 { text-align: center; color: var(--inacap-dark); margin-top: 0; margin-bottom: 5px; font-weight: 700; text-transform: uppercase; font-size: 22px; }
+        .login-card-subtitle { text-align: center; color: #7F8C8D; font-size: 13px; margin-bottom: 30px; }
+        
         .app-container { display: none; max-width: 1200px; margin: 0 auto; padding: 25px 20px; }
-        .navbar { 
-            display: flex; justify-content: space-between; align-items: center; 
-            background: var(--inacap-dark); 
-            color: white; 
-            padding: 14px 25px; 
-            border-radius: 4px; 
-            margin-bottom: 25px; 
-            border-left: 6px solid var(--inacap-red); /* Distintivo rojo lateral */
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        }
-        .navbar h1 { margin: 0; font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: var(--inacap-dark); color: white; padding: 14px 25px; border-radius: 4px; margin-bottom: 25px; border-left: 6px solid var(--inacap-red); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+        .navbar h1 { margin: 0; font-size: 18px; font-weight: 600; text-transform: uppercase; }
+        
         .user-info { display: flex; align-items: center; gap: 15px; font-size: 14px; }
-        .logout-btn { 
-            background: transparent; border: 1px solid #7F8C8D; color: #BDC3C7; 
-            padding: 5px 12px; border-radius: 3px; cursor: pointer; transition: all 0.2s; 
-        }
+        .logout-btn { background: transparent; border: 1px solid #7F8C8D; color: #BDC3C7; padding: 5px 12px; border-radius: 3px; cursor: pointer; transition: all 0.2s; }
         .logout-btn:hover { background: var(--danger); border-color: var(--danger); color: white; }
 
-        /* FILTROS / BOTONES DE ZONA */
         .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 25px; }
-        .zone-card { 
-            background: #FFFFFF; border: 1px solid var(--border-color); padding: 12px; 
-            text-align: center; border-radius: 4px; cursor: pointer; font-weight: 600; 
-            font-size: 13px; color: var(--inacap-dark); transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
+        .zone-card { background: #FFFFFF; border: 1px solid var(--border-color); padding: 12px; text-align: center; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--inacap-dark); transition: all 0.2s; }
         .zone-card:hover { border-color: var(--inacap-red); color: var(--inacap-red); background: #FCF3F3; }
         .zone-card.active { background: var(--inacap-red); color: white; border-color: var(--inacap-red); }
 
-        /* TARJETAS DE CONTENIDO */
-        .card { 
-            background: var(--card-bg); border-radius: 4px; padding: 25px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; 
-            border: 1px solid var(--border-color);
-        }
+        .card { background: var(--card-bg); border-radius: 4px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid var(--border-color); }
         .card h3 { color: var(--inacap-dark); border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px; margin-top: 0; font-size: 16px; text-transform: uppercase; }
         .card-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px; }
         .card-header-action h3 { border: none; padding: 0; margin: 0; }
 
-        /* TABLAS INSTITUCIONALES */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #E5E8E8; }
         th { background: var(--inacap-dark); color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; }
-        tr:hover { background-color: #F9EBEA; } /* Sutil highlight rojo al pasar el mouse */
+        tr:hover { background-color: #F9EBEA; }
         
-        /* INPUTS Y COMPONENTES */
-        .qty-input { width: 55px; padding: 5px; border: 1px solid var(--border-color); border-radius: 3px; text-align: center; }
         .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 3px; box-sizing: border-box; }
-        
-        /* BADGES */
         .badge { padding: 3px 8px; border-radius: 2px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .badge.available { background: #E8F8F5; color: #117A65; }
         .badge.unavailable { background: #FADBD8; color: #78281F; }
         
         .admin-only { display: none; }
-        
-        /* ZONA DE CARGA DE EXCEL */
-        .import-zone { 
-            border: 2px dashed #95A5A6; padding: 25px; text-align: center; 
-            border-radius: 4px; background: #FBFCFC; cursor: pointer; transition: all 0.2s; 
-        }
+        .import-zone { border: 2px dashed #95A5A6; padding: 25px; text-align: center; border-radius: 4px; background: #FBFCFC; cursor: pointer; transition: all 0.2s; margin-top: 15px;}
         .import-zone:hover { border-color: var(--inacap-red); background: #FDEDEC; }
         
-        /* BOTONES */
-        .btn { 
-            background: var(--inacap-dark); color: white; border: none; 
-            padding: 10px 20px; border-radius: 4px; font-size: 14px; 
-            font-weight: 600; cursor: pointer; transition: background 0.2s; 
-            text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        .btn:hover { background: #111518; }
+        .btn { background: var(--inacap-dark); color: white; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; text-transform: uppercase; }
         .btn-success { background: var(--inacap-red); }
         .btn-success:hover { background: var(--inacap-red-hover); }
+        .btn-add { background: #3498db; padding: 6px 12px; font-size: 12px; }
         
         .input-group { margin-bottom: 20px; }
         .input-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #34495E; font-size: 14px; }
         .input-group input { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        .input-group input:focus { border-color: var(--inacap-red); outline: none; }
         
         .status-banner { padding: 12px; border-radius: 4px; text-align: center; font-weight: bold; margin-top: 15px; display: none; font-size: 13px; }
+        
+        .search-bar { width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 4px; font-size: 15px; margin-bottom: 15px; box-sizing: border-box; }
+        .search-bar:focus { border-color: var(--inacap-red); outline: none; }
     </style>
 </head>
 <body>
 
+    <!-- CAPA 1: LOGIN -->
     <div id="loginOverlay" class="login-overlay">
         <div class="login-card">
             <h2>INACAP</h2>
-            <div class="login-card-subtitle">Sistema de Control de Inventario</div>
+            <div class="login-card-subtitle">Sistema de Control de Pañol - Informática</div>
             <form id="loginForm">
                 <div class="input-group">
                     <label>Nombre de Usuario:</label>
@@ -162,27 +91,30 @@
         </div>
     </div>
 
+    <!-- CAPA 2: DASHBOARD PRINCIPAL -->
     <div id="appContainer" class="app-container">
+        
+        <!-- BARRA SUPERIOR -->
         <div class="navbar">
-            <h1 id="appTitle">Control de Inventario y Equipos</h1>
+            <h1 id="appTitle">Pañol Control Digital</h1>
             <div class="user-info">
                 <span id="sessionLabel"></span>
                 <button class="logout-btn" id="btnLogout">Cerrar Sesión</button>
             </div>
         </div>
 
+        <!-- EQUIPOS PENDIENTES / PRÉSTAMOS ACTIVOS -->
         <div class="card">
             <h3 style="color:var(--inacap-red);">Préstamos Activos / Equipos Pendientes</h3>
-            <p style="color:#7F8C8D; font-size:13px; margin-top:0; margin-bottom: 15px;">Listado de control para el seguimiento de artículos fuera de bodega.</p>
+            <p style="color:#7F8C8D; font-size:13px; margin-top:0; margin-bottom: 15px;">Seguimiento de artículos fuera de bodega en tiempo real.</p>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Responsable</th>
-                            <th>ID Ítem</th>
-                            <th>Equipo Adeudado</th>
-                            <th>Cantidad</th>
-                            <th class="admin-only">Acción de Entrega</th>
+                            <th>N° Inventario</th>
+                            <th>Descripción del Equipo</th>
+                            <th class="admin-only">Acción de Recepción</th>
                         </tr>
                     </thead>
                     <tbody id="pendientesBody"></tbody>
@@ -191,71 +123,100 @@
             <div id="returnStatus" class="status-banner"></div>
         </div>
 
-        <h4 style="margin-bottom: 10px; text-transform: uppercase; font-size: 13px; color: #7F8C8D;">Filtrar por Ubicación Física</h4>
+        <!-- CARRITO DE SOLICITUDES -->
+        <div class="card" id="cartCard" style="display: none; border: 2px solid var(--inacap-red);">
+            <div class="card-header-action">
+                <h3 style="color:var(--inacap-red); margin:0;">🛒 Carrito de Solicitudes</h3>
+                <button class="btn btn-success" id="btnConfirmarCarrito">Confirmar y Enviar Pedido</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N° Inventario</th>
+                            <th>Descripción</th>
+                            <th>Comentarios / Notas para el Pañol</th>
+                            <th>Quitar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartBody"></tbody>
+                </table>
+            </div>
+            <div id="cartStatus" class="status-banner"></div>
+        </div>
+
+        <!-- ZONAS DE FILTRADO -->
+        <h4 style="margin-bottom: 10px; color: #7F8C8D; text-transform: uppercase; font-size: 13px;">Filtrar por Ubicación Física</h4>
         <div class="zone-grid" id="zoneGrid">
             <div class="zone-card active" data-zone="TODOS">Ver Todo el Stock</div>
-            <div class="zone-card" data-zone="Bodega Telecomunicaciones">Telecomunicaciones</div>
             <div class="zone-card" data-zone="Bodega de Hardware y Software">Hardware y Software</div>
-            <div class="zone-card" data-zone="Sala 207">Sala 207</div>
+            <div class="zone-card" data-zone="Bodega Telecomunicaciones">Telecomunicaciones</div>
+            <div class="zone-card" data-zone="Sala 207">Sala 207 (Leica)</div>
+            <div class="zone-card" data-zone="Sala 207 Chico">Sala 207 Chico</div>
             <div class="zone-card" data-zone="Maletas Arduino">Maletas Arduino</div>
-            <div class="zone-card" data-zone="Maletas raspberry">Maletas Raspberry</div>
-            <div class="zone-card" data-zone="Armarios Pasillos">Armarios Pasillos</div>
         </div>
 
+        <!-- VITRINA Y BUSCADOR -->
         <div class="card">
-            <div class="card-header-action">
-                <h3>Vitrina de Solicitud de Materiales</h3>
-                <button class="btn btn-success" id="btnProcesar">Registrar Préstamo de Selección</button>
+            <h3>Buscador y Catálogo</h3>
+            <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Buscar por N° Inventario, Descripción, Marca o Modelo...">
+            
+            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Sincronizando inventario con la nube...</div>
+            <div style="overflow-x: auto;">
+                <table id="inventoryTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>N° Inv</th>
+                            <th>Descripción del Artículo</th>
+                            <th>Marca / Modelo</th>
+                            <th>Estado</th>
+                            <th style="text-align: center;">Disponibilidad</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryBody"></tbody>
+                </table>
             </div>
-            <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Conectando con servidores de stock...</div>
-            <table id="inventoryTable" style="display: none;">
-                <thead>
-                    <tr>
-                        <th style="width: 40px;">Sel.</th>
-                        <th>ID</th>
-                        <th>Descripción del Artículo</th>
-                        <th>Ubicación</th>
-                        <th style="text-align: center;">Stock</th>
-                        <th style="width: 80px;">Cant.</th>
-                        <th>Notas de Solicitud</th>
-                    </tr>
-                </thead>
-                <tbody id="inventoryBody"></tbody>
-            </table>
-            <div id="actionStatus" class="status-banner"></div>
         </div>
 
+        <!-- PANEL DE ADMINISTRADOR -->
         <div class="card admin-only">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px;">
-                <h3 style="margin:0;">Administración de Infraestructura</h3>
-                <button class="btn" id="btnExportar" style="background:var(--success);">📥 Exportar Planilla Maestra (.xlsx)</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--inacap-gray-light); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin:0;">Panel de Administración y Auditoría</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn" id="btnExportarHistorial" style="background:#2980B9;">📅 Exportar Historial Mensual</button>
+                    <button class="btn" id="btnExportar" style="background:var(--success);">📥 Exportar Planilla INACAP (.xlsx)</button>
+                </div>
             </div>
+            
             <div class="import-zone" id="dropZone">
-                <strong style="color: var(--inacap-dark);">Arrastre o seleccione el archivo Excel para actualizar el catálogo (.xlsx)</strong>
+                <strong style="color: var(--inacap-dark);">Arrastre el archivo Excel Oficial de INACAP para actualizar la base de datos (.xlsx)</strong>
+                <p style="font-size: 12px; color: #7F8C8D; margin-top: 5px;">El sistema leerá automáticamente desde la fila 7 omitiendo los metadatos.</p>
                 <input type="file" id="excelFile" accept=".xlsx" style="display: none;">
             </div>
             <div id="importStatus" class="status-banner"></div>
         </div>
 
+        <!-- HISTORIAL HISTÓRICO GENERAL -->
         <div class="card">
-            <h3 id="historialTitle">Registro Histórico de Movimientos</h3>
+            <h3 id="historialTitle">Registro de Movimientos Recientes</h3>
             <div style="overflow-x: auto; max-height: 300px;">
                 <table>
                     <thead>
                         <tr>
                             <th>Fecha/Hora</th>
                             <th>Operador</th>
-                            <th>Código</th>
+                            <th>N° Inventario</th>
                             <th>Artículo</th>
-                            <th>Cant.</th>
                             <th>Operación</th>
-                            <th>Detalle/Observación</th>
+                            <th>Observación</th>
                         </tr>
                     </thead>
                     <tbody id="historyBody"></tbody>
                 </table>
             </div>
         </div>
+        
     </div>
     <script src="script.js"></script>
 </body>
