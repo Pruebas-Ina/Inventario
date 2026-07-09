@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal de Inventario - INACAP</title>
-    <!-- Librería para leer/escribir Excel -->
+    <!-- Librería para Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         /* PALETA INACAP */
@@ -45,6 +45,7 @@
         th { background: var(--inacap-dark); color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; }
         tr:hover { background-color: #F9EBEA; }
         
+        .qty-input { width: 55px; padding: 5px; border: 1px solid var(--border-color); border-radius: 3px; text-align: center; }
         .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 3px; box-sizing: border-box; }
         .badge { padding: 3px 8px; border-radius: 2px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .badge.available { background: #E8F8F5; color: #117A65; }
@@ -112,8 +113,9 @@
                     <thead>
                         <tr>
                             <th>Responsable</th>
-                            <th>N° Inventario</th>
+                            <th>ID Ítem</th>
                             <th>Descripción del Equipo</th>
+                            <th>Cantidad</th>
                             <th class="admin-only">Acción de Recepción</th>
                         </tr>
                     </thead>
@@ -133,8 +135,9 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>N° Inventario</th>
+                            <th>ID Ítem</th>
                             <th>Descripción</th>
+                            <th style="width: 80px;">Cant.</th>
                             <th>Comentarios / Notas para el Pañol</th>
                             <th>Quitar</th>
                         </tr>
@@ -159,17 +162,16 @@
         <!-- VITRINA Y BUSCADOR -->
         <div class="card">
             <h3>Buscador y Catálogo</h3>
-            <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Buscar por N° Inventario, Descripción, Marca o Modelo...">
+            <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Buscar por ID o Descripción del Artículo...">
             
             <div id="loadingInventory" style="text-align: center; padding: 20px; font-style: italic;">Sincronizando inventario con la nube...</div>
             <div style="overflow-x: auto;">
                 <table id="inventoryTable" style="display: none;">
                     <thead>
                         <tr>
-                            <th>N° Inv</th>
+                            <th>ID</th>
                             <th>Descripción del Artículo</th>
-                            <th>Marca / Modelo</th>
-                            <th>Estado</th>
+                            <th>Ubicación</th>
                             <th style="text-align: center;">Disponibilidad</th>
                             <th>Acción</th>
                         </tr>
@@ -190,8 +192,8 @@
             </div>
             
             <div class="import-zone" id="dropZone">
-                <strong style="color: var(--inacap-dark);">Arrastre el archivo Excel Oficial de INACAP para actualizar la base de datos (.xlsx)</strong>
-                <p style="font-size: 12px; color: #7F8C8D; margin-top: 5px;">El sistema leerá automáticamente desde la fila 7 omitiendo los metadatos.</p>
+                <strong style="color: var(--inacap-dark);">Arrastre su Excel Base Local para actualizar la base de datos (.xlsx)</strong>
+                <p style="font-size: 12px; color: #7F8C8D; margin-top: 5px;">El sistema leerá las 7 columnas originales que el pañol utiliza localmente.</p>
                 <input type="file" id="excelFile" accept=".xlsx" style="display: none;">
             </div>
             <div id="importStatus" class="status-banner"></div>
@@ -206,8 +208,9 @@
                         <tr>
                             <th>Fecha/Hora</th>
                             <th>Operador</th>
-                            <th>N° Inventario</th>
+                            <th>ID</th>
                             <th>Artículo</th>
+                            <th>Cant.</th>
                             <th>Operación</th>
                             <th>Observación</th>
                         </tr>
