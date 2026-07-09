@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal de Inventario - INACAP</title>
-    <!-- Librería para Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --inacap-red: #D6001C; --inacap-red-hover: #A80012; --inacap-dark: #232B30; --inacap-gray-light: #F4F6F7; --card-bg: #FFFFFF; --text-main: #2C3E50; --border-color: #D5DBDB; --success: #27AE60; --danger: #E74C3C; }
@@ -32,7 +31,12 @@
         th { background: var(--inacap-dark); color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; }
         tr:hover { background-color: #F9EBEA; }
         .qty-input { width: 55px; padding: 5px; border: 1px solid var(--border-color); border-radius: 3px; text-align: center; }
-        .obs-input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 3px; box-sizing: border-box; }
+        
+        /* Estilos actualizados para el Gran Bloque de Texto */
+        .obs-input { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+        .obs-input:focus { border-color: var(--inacap-red); outline: none; }
+        textarea.obs-input { resize: vertical; min-height: 80px; }
+        
         .badge { padding: 3px 8px; border-radius: 2px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .badge.available { background: #E8F8F5; color: #117A65; }
         .badge.unavailable { background: #FADBD8; color: #78281F; }
@@ -93,25 +97,31 @@
             <div id="returnStatus" class="status-banner"></div>
         </div>
 
-        <!-- CARRITO OPTIMIZADO (Solo lectura de lo agregado) -->
         <div class="card" id="cartCard" style="display: none; border: 2px solid var(--inacap-red);">
-            <div class="card-header-action">
+            <div class="card-header-action" style="border-bottom: none; margin-bottom: 0;">
                 <h3 style="color:var(--inacap-red); margin:0;">🛒 Carrito de Solicitudes</h3>
-                <button class="btn btn-success" id="btnConfirmarCarrito">Confirmar y Enviar Pedido</button>
             </div>
-            <div style="overflow-x: auto;">
+            <div style="overflow-x: auto; margin-bottom: 15px;">
                 <table>
                     <thead>
                         <tr>
                             <th>ID Ítem</th>
                             <th>Descripción</th>
                             <th style="text-align:center;">Cant. Solicitada</th>
-                            <th>Comentarios / Notas para el Pañol</th>
                             <th>Quitar</th>
                         </tr>
                     </thead>
                     <tbody id="cartBody"></tbody>
                 </table>
+            </div>
+            
+            <div style="border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--inacap-dark);">Observaciones Generales del Pedido (Opcional):</label>
+                <textarea id="notaGeneralPedido" class="obs-input" rows="3" placeholder="Ej: No encontré X insumo en el catálogo. Este material es para el taller de Redes sección 41..."></textarea>
+            </div>
+            
+            <div style="text-align: right; margin-top: 15px;">
+                <button class="btn btn-success" id="btnConfirmarCarrito">Confirmar y Enviar Pedido</button>
             </div>
             <div id="cartStatus" class="status-banner"></div>
         </div>
@@ -138,8 +148,7 @@
                             <th>ID</th>
                             <th>Descripción / Ubicación</th>
                             <th style="text-align: center;">Disponibilidad</th>
-                            <th style="width: 70px;">Pedir Cant.</th>
-                            <th>Notas de Préstamo</th>
+                            <th style="width: 80px;">Pedir Cant.</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
