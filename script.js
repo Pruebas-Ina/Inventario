@@ -1,16 +1,17 @@
-// CONFIGURACIÓN PRINCIPAL
+// ⚠️ IMPORTANTE: COLOCA AQUÍ LA URL DE TU SCRIPT DE GOOGLE
 const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwguUMdCXX0UWIV6-rsZVuaO8k_WAogw1UfU11FLM8m2dDD_OtBxRSRYJsqkdKgOx8I/exec';
 
+// VARIABLES GLOBALES EN MEMORIA
 let CONFIG_SESION = { usuario: "", clave: "", rol: "" };
 let CACHE_INVENTARIO = [];
+let CACHE_HISTORIAL = [];
+let CARRITO = [];
 let ZONA_ACTUAL = 'TODOS';
 
-// === SEGURIDAD: PREVENCIÓN DE XSS ===
+// === SEGURIDAD BÁSICA ===
 function sanitizarTexto(texto) {
     if (!texto) return "Sin observaciones.";
-    const div = document.createElement('div'); 
-    div.innerText = texto; 
-    return div.innerHTML;
+    const div = document.createElement('div'); div.innerText = texto; return div.innerHTML;
 }
 
 // === INICIO DE SESIÓN ===
@@ -23,11 +24,9 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
 
     try {
         const response = await fetch(GOOGLE_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: "LOGIN", usuario: user, clave: pass })
+            method: 'POST', body: JSON.stringify({ action: "LOGIN", usuario: user, clave: pass })
         });
         const res = await response.json();
-
         if(res.status === 'success') {
             CONFIG_SESION.usuario = res.usuario; 
             CONFIG_SESION.clave = pass; 
@@ -38,153 +37,109 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             document.getElementById('sessionLabel').innerText = `${res.usuario} (${res.rol})`;
             
             if(res.rol === 'Admin') {
-                // CORRECCIÓN VISUAL: Muestra los elementos Admin cuidando la estructura de las tablas
                 document.querySelectorAll('.admin-only').forEach(el => {
-                    if(el.tagName === 'TH' || el.tagName === 'TD') {
-                        el.style.display = 'table-cell';
-                    } else {
-                        el.style.display = 'block';
-                    }
+                    if(el.tagName === 'TH' || el.tagName === 'TD') el.style.display = 'table-cell';
+                    else el.style.display = 'block';
                 });
-                document.getElementById('historialTitle').innerText = "Historial General de Auditoría";
             }
             sincronizarSistema();
         } else {
-            errorDiv.innerText = res.message; 
-            errorDiv.style.display = 'block';
+            errorDiv.innerText = res.message; errorDiv.style.display = 'block';
         }
-    } catch(err) { 
-        errorDiv.innerText = "Error de conexión con el servidor."; 
-        errorDiv.style.display = 'block'; 
-    }
+    } catch(err) { errorDiv.innerText = "Error de conexión con el servidor."; errorDiv.style.display = 'block'; }
 });
 
-// === CERRAR SESIÓN ===
-document.getElementById('btnLogout').addEventListener('click', () => {
-    location.reload();
-});
+document.getElementById('btnLogout').addEventListener('click', () => location.reload());
 
 // === SINCRONIZACIÓN CON LA NUBE ===
 async function sincronizarSistema() {
     document.getElementById('loadingInventory').style.display = 'block';
     document.getElementById('inventoryTable').style.display = 'none';
-
     try {
         const url = `${GOOGLE_API_URL}?usuario=${encodeURIComponent(CONFIG_SESION.usuario)}&clave=${encodeURIComponent(CONFIG_SESION.clave)}`;
         const response = await fetch(url);
         const res = await response.json();
-
         if(res.status === 'success') {
             CACHE_INVENTARIO = res.inventario;
+            CACHE_HISTORIAL = res.historial;
+            CARRITO = []; // Limpiamos el carrito en cada refresco
+            
+            renderizarCarrito();
             renderizarInventario();
             renderizarHistorial(res.historial);
             calcularYRenderizarPendientes(res.historial);
         }
-    } catch(error) { 
-        console.error("Error al sincronizar datos:", error); 
-    }
+    } catch(error) { console.error("Error al sincronizar:", error); }
 }
 
-// === CÁLCULO DE EQUIPOS PENDIENTES (QUIÉN DEBE QUÉ) ===
+// === CÁLCULO DE DEUDAS ===
 function calcularYRenderizarPendientes(historial) {
     let balances = {};
-    
-    // Suma préstamos y resta devoluciones matemáticas
     historial.forEach(h => {
-        let key = h.usuario + "|||" + h.id_item;
-        if(!balances[key]) balances[key] = { usuario: h.usuario, id_item: h.id_item, nombre: h.nombre, balance: 0 };
-        
-        if(h.tipo === "PRESTADO") balances[key].balance += Number(h.cantidad);
-        if(h.tipo === "DEVUELTO") balances[key].balance -= Number(h.cantidad);
+        let key = h.usuario + "|||" + h.ninventario;
+        if(!balances[key]) balances[key] = { usuario: h.usuario, ninventario: h.ninventario, descripcion: h.descripcion, balance: 0 };
+        if(h.tipo === "PRESTADO") balances[key].balance += 1;
+        if(h.tipo === "DEVUELTO") balances[key].balance -= 1;
     });
 
     const pendientes = Object.values(balances).filter(b => b.balance > 0);
-    const tbody = document.getElementById('pendientesBody');
+    const tbody = document.getElementById('pendientesBody'); 
     tbody.innerHTML = '';
 
     if(pendientes.length === 0) {
-        let cols = CONFIG_SESION.rol === 'Admin' ? 5 : 4;
-        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; color:#10b981; font-weight:bold;">¡Todo al día! No hay equipos pendientes.</td></tr>`;
+        let cols = CONFIG_SESION.rol === 'Admin' ? 4 : 3;
+        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; color:#27AE60; font-weight:bold;">No hay equipos pendientes.</td></tr>`;
         return;
     }
 
     pendientes.forEach(p => {
         let adminControls = "";
-        const idLimpio = p.usuario.replace(/\s+/g, '_'); 
-        const esAdmin = CONFIG_SESION.rol === 'Admin';
-        
-        // Construimos dinámicamente la celda de control, oculta si es profesor
-        adminControls = `
-            <td class="admin-only" style="display: ${esAdmin ? 'table-cell' : 'none'}; vertical-align: middle;">
-                <div style="display:flex; gap:5px;">
-                    <input type="number" id="dev-qty-${idLimpio}-${p.id_item}" value="${p.balance}" min="1" max="${p.balance}" class="qty-input">
-                    <button class="btn btn-success" style="padding: 6px 12px; font-size:12px;" onclick="procesarDevolucionAdmin('${p.usuario}', '${p.id_item}', '${p.nombre}')">Devolver</button>
-                </div>
-            </td>
-        `;
-
+        if(CONFIG_SESION.rol === 'Admin') {
+            adminControls = `
+                <td class="admin-only" style="display: table-cell; vertical-align: middle;">
+                    <button class="btn btn-success" style="padding: 6px 12px; font-size:12px;" onclick="procesarDevolucionAdmin('${p.usuario}', '${p.ninventario}', '${p.descripcion}')">Marcar Devuelto</button>
+                </td>`;
+        }
         tbody.innerHTML += `
             <tr>
                 <td><strong>${p.usuario}</strong></td>
-                <td><code>${p.id_item}</code></td>
-                <td>${p.nombre}</td>
-                <td style="font-weight:bold; color:var(--danger); font-size:16px;">${p.balance}</td>
+                <td><code>${p.ninventario}</code></td>
+                <td>${p.descripcion}</td>
                 ${adminControls}
-            </tr>
-        `;
+            </tr>`;
     });
 }
 
-// === DEVOLUCIÓN CONTROLADA POR EL ADMINISTRADOR ===
+// === DEVOLUCIÓN ADMINISTRATIVA ===
 window.procesarDevolucionAdmin = async function(usuarioAfectado, idItem, nombreItem) {
-    const idLimpio = usuarioAfectado.replace(/\s+/g, '_');
-    const qtyInput = document.getElementById(`dev-qty-${idLimpio}-${idItem}`);
-    
-    if(!qtyInput) { alert("Error al capturar la celda de cantidad."); return; }
-    
-    const cantidadADevolver = qtyInput.value;
     const statusDiv = document.getElementById('returnStatus');
+    if(!confirm(`¿Confirmar recepción de "${nombreItem}" devuelto por ${usuarioAfectado}?`)) return;
 
-    if(!confirm(`¿Confirmar recepción física de ${cantidadADevolver} unidades de "${nombreItem}" devueltas por ${usuarioAfectado}?`)) return;
-
-    statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b';
-    statusDiv.innerText = "Procesando el reingreso en la base de datos...";
-    statusDiv.style.display = 'block';
-
+    statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b'; statusDiv.innerText = "Procesando..."; statusDiv.style.display = 'block';
     try {
         const response = await fetch(GOOGLE_API_URL, {
             method: 'POST',
             body: JSON.stringify({
-                action: "PEDIDO_MULTIPLE",
+                action: "PEDIDO_MULTIPLE", 
                 usuario: CONFIG_SESION.usuario, 
-                clave: CONFIG_SESION.clave,
+                clave: CONFIG_SESION.clave, 
                 tipo_movimiento: "DEVUELTO",
-                items: [{
-                    id_item: idItem,
-                    nombre: nombreItem,
-                    cantidad: cantidadADevolver,
-                    observaciones: "Recepcionado y verificado físicamente por el Administrador.",
-                    usuario_asignado: usuarioAfectado 
-                }]
+                items: [{ ninventario: idItem, descripcion: nombreItem, observaciones: "Recepcionado por Admin", usuario_asignado: usuarioAfectado }]
             })
         });
         const res = await response.json();
-        if(res.status === 'success') {
-            statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534';
-            statusDiv.innerText = "¡Devolución registrada! El inventario ha sido actualizado.";
-            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+        if(res.status === 'success') { 
+            statusDiv.style.display = 'none'; 
             sincronizarSistema(); 
-        } else {
-            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
-            statusDiv.innerText = res.message || "Error al procesar el reingreso.";
         }
-    } catch (e) {
-        statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b';
-        statusDiv.innerText = "Error crítico de comunicación con el servidor.";
+    } catch (e) { 
+        statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = "Error de red."; 
     }
 }
 
-// === FILTRADO POR ZONAS ===
+// === BUSCADOR Y ZONAS ===
+document.getElementById('searchInput').addEventListener('keyup', renderizarInventario);
+
 document.querySelectorAll('.zone-card').forEach(card => {
     card.addEventListener('click', (e) => {
         document.querySelectorAll('.zone-card').forEach(c => c.classList.remove('active'));
@@ -194,66 +149,106 @@ document.querySelectorAll('.zone-card').forEach(card => {
     });
 });
 
-// === RENDERIZAR VITRINA DEL INVENTARIO ===
+// === RENDERIZAR VITRINA ===
 function renderizarInventario() {
     const tbody = document.getElementById('inventoryBody'); 
     tbody.innerHTML = '';
+    const terminoBusqueda = document.getElementById('searchInput').value.toLowerCase();
     
-    const filtrados = CACHE_INVENTARIO.filter(item => ZONA_ACTUAL === 'TODOS' || item.zona === ZONA_ACTUAL);
+    const filtrados = CACHE_INVENTARIO.filter(item => {
+        const matchZona = (ZONA_ACTUAL === 'TODOS' || item.ubicacion === ZONA_ACTUAL);
+        const matchTexto = (item.ninventario.toLowerCase().includes(terminoBusqueda) || 
+                            item.descripcion.toLowerCase().includes(terminoBusqueda) ||
+                            item.marca.toLowerCase().includes(terminoBusqueda) ||
+                            item.modelo.toLowerCase().includes(terminoBusqueda));
+        return matchZona && matchTexto;
+    });
     
     if(filtrados.length === 0) { 
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; font-style:italic;">No hay elementos registrados en esta zona.</td></tr>`; 
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No se encontraron resultados.</td></tr>`; 
         return; 
     }
     
     filtrados.forEach(item => {
-        const disponible = Number(item.disponibles);
-        const badge = disponible > 0 ? `<span class="badge available">${disponible} ${item.unidad}</span>` : `<span class="badge unavailable">Agotado</span>`;
+        const estaEnCarrito = CARRITO.some(c => c.ninventario === item.ninventario);
+        const estaPrestado = item.prestado_a && item.prestado_a !== "";
+        let botonAccion = "";
+
+        if(estaPrestado) {
+            botonAccion = `<span class="badge unavailable">En uso por ${item.prestado_a}</span>`;
+        } else if (estaEnCarrito) {
+            botonAccion = `<span class="badge" style="background:#34495E; color:white;">En carrito</span>`;
+        } else {
+            botonAccion = `<button class="btn btn-add" onclick="agregarAlCarrito('${item.ninventario}')">Añadir al Carrito</button>`;
+        }
+
         tbody.innerHTML += `
-            <tr id="row-${item.id_item}">
-                <td><input type="checkbox" class="item-select" value="${item.id_item}" ${disponible <= 0 ? 'disabled' : ''}></td>
-                <td><small><code>${item.id_item}</code></small></td>
-                <td><strong>${item.nombre}</strong></td>
-                <td><span style="font-size:13px; color:#4b5563;">📦 ${item.zona}</span></td>
-                <td style="text-align: center;">${badge}</td>
-                <td><input type="number" class="qty-input" id="qty-${item.id_item}" value="1" min="1" max="${disponible}"></td>
-                <td><input type="text" class="obs-input" id="obs-${item.id_item}" placeholder="Agregar nota..."></td>
-            </tr>
-        `;
+            <tr>
+                <td><code>${item.ninventario}</code></td>
+                <td><strong>${item.descripcion}</strong></td>
+                <td><span style="font-size:12px; color:#7F8C8D;">${item.marca} ${item.modelo}</span></td>
+                <td>${item.estado}</td>
+                <td style="text-align: center;">${estaPrestado ? `<span class="badge unavailable">0</span>` : `<span class="badge available">1</span>`}</td>
+                <td>${botonAccion}</td>
+            </tr>`;
     });
     document.getElementById('loadingInventory').style.display = 'none';
     document.getElementById('inventoryTable').style.display = 'table';
 }
 
-// === RENDERIZAR HISTORIAL DE AUDITORÍA ===
 function renderizarHistorial(historial) {
-    const tbody = document.getElementById('historyBody'); 
-    tbody.innerHTML = '';
+    const tbody = document.getElementById('historyBody'); tbody.innerHTML = '';
     historial.forEach(h => {
         const f = new Date(h.fecha).toLocaleDateString('es-CL', {hour:'2-digit', minute:'2-digit'});
         const opStyle = h.tipo === 'PRESTADO' ? 'color:var(--danger);font-weight:bold;' : 'color:var(--success);font-weight:bold;';
-        tbody.innerHTML += `<tr><td><small>${f}</small></td><td>${h.usuario}</td><td><code>${h.id_item}</code></td><td>${h.nombre}</td><td>${h.cantidad}</td><td style="${opStyle}">${h.tipo}</td><td><small>${h.obs}</small></td></tr>`;
+        tbody.innerHTML += `<tr><td><small>${f}</small></td><td>${h.usuario}</td><td><code>${h.ninventario}</code></td><td>${h.descripcion}</td><td style="${opStyle}">${h.tipo}</td><td><small>${h.obs}</small></td></tr>`;
     });
 }
 
-// === REGISTRAR SOLICITUD DE PRÉSTAMOS ===
-document.getElementById('btnProcesar').addEventListener('click', async () => {
-    const checkboxes = document.querySelectorAll('.item-select:checked');
-    if(checkboxes.length === 0) return alert("Debe seleccionar al menos un artículo de la vitrina.");
+// === LÓGICA DEL CARRITO ===
+window.agregarAlCarrito = function(idItem) {
+    const item = CACHE_INVENTARIO.find(i => i.ninventario === idItem);
+    if(item && !CARRITO.some(c => c.ninventario === idItem)) {
+        CARRITO.push({ ...item, nota: "" });
+        renderizarCarrito();
+        renderizarInventario(); // Actualiza el botón a "En carrito"
+    }
+}
 
-    const statusDiv = document.getElementById('actionStatus');
-    const itemsAProcesar = [];
+window.quitarDelCarrito = function(idItem) {
+    CARRITO = CARRITO.filter(c => c.ninventario !== idItem);
+    renderizarCarrito();
+    renderizarInventario();
+}
 
-    checkboxes.forEach(cb => {
-        const id = cb.value; 
-        const articuloCache = CACHE_INVENTARIO.find(i => i.id_item === id);
-        itemsAProcesar.push({
-            id_item: id, 
-            nombre: articuloCache.nombre,
-            cantidad: document.getElementById(`qty-${id}`).value,
-            observaciones: sanitizarTexto(document.getElementById(`obs-${id}`).value)
-        });
+function renderizarCarrito() {
+    const card = document.getElementById('cartCard');
+    const tbody = document.getElementById('cartBody');
+    tbody.innerHTML = '';
+    
+    if(CARRITO.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+
+    CARRITO.forEach(item => {
+        tbody.innerHTML += `
+            <tr>
+                <td><code>${item.ninventario}</code></td>
+                <td><strong>${item.descripcion}</strong></td>
+                <td><input type="text" class="obs-input" id="cart-obs-${item.ninventario}" placeholder="Comentarios (opcional)..." value="${item.nota}"></td>
+                <td><button class="btn" style="background:var(--danger); padding: 5px 10px;" onclick="quitarDelCarrito('${item.ninventario}')">X</button></td>
+            </tr>`;
     });
+}
+
+document.getElementById('btnConfirmarCarrito').addEventListener('click', async () => {
+    if(CARRITO.length === 0) return;
+    const statusDiv = document.getElementById('cartStatus');
+    
+    const itemsAProcesar = CARRITO.map(c => ({
+        ninventario: c.ninventario,
+        descripcion: c.descripcion,
+        observaciones: sanitizarTexto(document.getElementById(`cart-obs-${c.ninventario}`).value)
+    }));
 
     statusDiv.style.background = '#e2e8f0'; statusDiv.style.color = '#1e293b'; statusDiv.innerText = "Despachando solicitud..."; statusDiv.style.display = 'block';
 
@@ -264,83 +259,128 @@ document.getElementById('btnProcesar').addEventListener('click', async () => {
         });
         const res = await response.json();
         if(res.status === 'success') {
-            statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534'; statusDiv.innerText = "¡Préstamo autorizado con éxito! Comprobante enviado.";
+            statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534'; statusDiv.innerText = "¡Préstamo autorizado!";
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
             sincronizarSistema();
-        } else {
-            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b'; statusDiv.innerText = res.message;
         }
-    } catch (e) { 
-        statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b'; statusDiv.innerText = "Error en la transacción."; 
-    }
+    } catch (e) { statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = "Error en el servidor."; }
 });
 
-// === EXPORTAR BASE DE DATOS (ENCABEZADOS IDÉNTICOS A TU PLANTILLA) ===
+// === EXPORTAR HISTORIAL MENSUAL (SOLO ADMIN) ===
+document.getElementById('btnExportarHistorial').addEventListener('click', () => {
+    if(CONFIG_SESION.rol !== 'Admin') return alert("Acceso denegado.");
+    if(CACHE_HISTORIAL.length === 0) return alert("No hay movimientos registrados.");
+
+    const historialPorMes = {};
+
+    CACHE_HISTORIAL.forEach(h => {
+        const fechaObj = new Date(h.fecha);
+        const mesAnio = fechaObj.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+        const nombreHoja = mesAnio.charAt(0).toUpperCase() + mesAnio.slice(1); 
+
+        if(!historialPorMes[nombreHoja]) historialPorMes[nombreHoja] = [];
+
+        historialPorMes[nombreHoja].push({
+            "Fecha y Hora": fechaObj.toLocaleString('es-CL'),
+            "Operador/Profesor": h.usuario,
+            "N° Inventario": h.ninventario,
+            "Descripción del Artículo": h.descripcion,
+            "Tipo de Operación": h.tipo,
+            "Observaciones / Notas": h.obs
+        });
+    });
+
+    const wb = XLSX.utils.book_new();
+    for (let mes in historialPorMes) {
+        const ws = XLSX.utils.json_to_sheet(historialPorMes[mes]);
+        ws['!cols'] = [{wch: 20}, {wch: 25}, {wch: 15}, {wch: 40}, {wch: 15}, {wch: 40}];
+        XLSX.utils.book_append_sheet(wb, ws, mes.substring(0, 31));
+    }
+    XLSX.writeFile(wb, "Auditoria_Mensual_Panol_Informatica.xlsx");
+});
+
+// === EXPORTAR CON FORMATO OFICIAL ERP INACAP ===
 document.getElementById('btnExportar').addEventListener('click', () => {
     if(CACHE_INVENTARIO.length === 0) return alert("No hay datos disponibles para exportar.");
     
-    // Mapeo inverso: Reconstruye las columnas originales con mayúsculas y guiones bajos
-    const datosEstandarizados = CACHE_INVENTARIO.map(item => ({
-        "ID_Item": item.id_item,
-        "Nombre": item.nombre,
-        "Zona": item.zona,
-        "Cantidad_Total": Number(item.total) || 0,
-        "Cantidad_Prestada": Number(item.prestado) || 0,
-        "Disponibles": Number(item.disponibles) || 0,
-        "Unidad": item.unidad
-    }));
+    const ws_data = [
+        [null, null, null, null, null, null, "SEDE", "VALPARAÍSO", null, "RESPONSABLE CUSTODIA", "ÁREA INFORMÁTICA"],
+        [null, null, null, null, null, null, "EDIFICIO / SECTOR", "SEDE CENTRAL", null, "FECHA INVENTARIO", new Date().toLocaleDateString('es-CL')],
+        [null, null, null, null, null, null, "BODEGA / PAÑOL", "PAÑOL INFORMÁTICA", null, "TIPO INVENTARIO", "INVENTARIO GENERAL"],
+        [null, null, null, null, null, null, "ÁREA RESPONSABLE", "INFORMÁTICA"],
+        [null, null, 'Si el articulo no esta en "Articulo 1 buscar en "Articulo 2"'],
+        [null, null, null, null, 'No Modificar'],
+        [null, null, "Articulo 1", "Articulo 2", "Código Art", "Grupo Art", "Descr Familia Art", "Uni Medida", "Fecha Ingreso", "Tipo movimiento", "Cantidad Mov", "Doc Respaldo", "Fecha Vencimiento", "Prog Estudio Solicitante", "Área Solicitante"]
+    ];
 
-    const ws = XLSX.utils.json_to_sheet(datosEstandarizados);
+    CACHE_INVENTARIO.forEach(item => {
+        ws_data.push([
+            null, null, 
+            item.descripcion,                // Articulo 1
+            "",                              // Articulo 2 
+            item.ninventario,                // Código Art (N° Inventario)
+            "MATERIALES_INS",                // Grupo Art 
+            "SEDE",                          // Descr Familia Art
+            "UNI",                           // Uni Medida
+            new Date().toLocaleDateString('es-CL'), // Fecha Ingreso
+            "Inventario Inicial",            // Tipo movimiento
+            1,                               // Cantidad Mov (Siempre 1 en inventario INACAP)
+            "Sistema Pañol",                 // Doc Respaldo
+            "", "", ""                       
+        ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventario_Actual");
-    XLSX.writeFile(wb, "Inventario_Maestro_Final.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Inventarios pañoles");
+    XLSX.writeFile(wb, "Planilla_Inventario_Valparaiso.xlsx");
 });
 
-// === IMPORTADOR INTELIGENTE DE EXCEL (A PRUEBA DE MAYÚSCULAS/ESPACIOS) ===
+// === IMPORTADOR INTELIGENTE (LEE LA PLANILLA INACAP) ===
 document.getElementById('dropZone').addEventListener('click', () => document.getElementById('excelFile').click());
 document.getElementById('excelFile').addEventListener('change', function(e) {
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     const statusDiv = document.getElementById('importStatus');
-    statusDiv.style.display = 'block'; statusDiv.innerText = "Leyendo archivo Excel...";
+    statusDiv.style.display = 'block'; statusDiv.innerText = "Analizando formato corporativo INACAP...";
 
     reader.onload = async function(e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
-        const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
         
-        // NORMALIZADOR INTELIGENTE: Pasa llaves a minúsculas y elimina espacios/guiones para evitar desajustes
+        // Magia: range: 6 le dice que la tabla empieza en la fila 7
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(worksheet, { range: 6, defval: "" });
+        
         const payloadData = json.map(row => {
-            let rowLimpia = {};
-            for (let clave in row) {
-                let claveNormalizada = clave.toLowerCase().replace(/[\s_]/g, '');
-                rowLimpia[claveNormalizada] = row[clave];
-            }
-
+            let r = {};
+            for (let c in row) r[c.toLowerCase().replace(/[\s_°]/g, '')] = row[c];
+            
             return {
-                id_item: rowLimpia['iditem'] || 'S/N', 
-                nombre: rowLimpia['nombre'] || 'Artículo sin nombre',
-                zona: rowLimpia['zona'] || 'Bodega', 
-                cantidad_total: Number(rowLimpia['cantidadtotal']) || 0, 
-                unidad: rowLimpia['unidad'] || 'Unidad'
+                ubicacion: 'Pañol Informática', 
+                grupo: r['grupoart'] || '', 
+                ninventario: r['códigoart'] || r['codigoart'] || 'S/N', 
+                descripcion: r['articulo1'] || r['artículo1'] || 'Artículo sin nombre',
+                estado: 'Bueno', 
+                marca: '', 
+                modelo: '', 
+                nserie: ''
             };
         });
 
-        statusDiv.innerText = "Sincronizando actualizaciones en la nube...";
+        const datosLimpios = payloadData.filter(item => item.descripcion !== 'Artículo sin nombre');
+
+        statusDiv.innerText = "Inyectando catálogo en la base de datos local...";
         try {
             const response = await fetch(GOOGLE_API_URL, {
-                method: 'POST', 
-                body: JSON.stringify({ action: "IMPORTAR_INVENTARIO", usuario: CONFIG_SESION.usuario, clave: CONFIG_SESION.clave, data: payloadData })
+                method: 'POST', body: JSON.stringify({ action: "IMPORTAR_INVENTARIO", usuario: CONFIG_SESION.usuario, clave: CONFIG_SESION.clave, data: datosLimpios })
             });
             const res = await response.json();
             if(res.status === 'success') {
-                statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534'; statusDiv.innerText = "¡Base de datos sincronizada correctamente!";
+                statusDiv.style.background = '#dcfce7'; statusDiv.style.color = '#166534'; statusDiv.innerText = "¡Catálogo importado y sincronizado!";
                 sincronizarSistema();
-            } else { 
-                statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b'; statusDiv.innerText = res.message; 
-            }
-        } catch(err) { 
-            statusDiv.style.background = '#fee2e2'; statusDiv.style.color = '#991b1b'; statusDiv.innerText = "Error de red al intentar subir el archivo."; 
-        }
+            } else { statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = res.message; }
+        } catch(err) { statusDiv.style.background = '#FADBD8'; statusDiv.style.color = '#78281F'; statusDiv.innerText = "Error de red."; }
     };
     reader.readAsArrayBuffer(file);
 });
